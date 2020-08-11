@@ -18,7 +18,6 @@ if DEBUG_LINUX:
 # No idea if that follows symlinks.
 MUSIC_PATH = os.path.normpath('N:\Files\Musik')
 if DEBUG_LINUX:
-    print("WARNING: Debug flag is set to true!", file=sys.stderr)
     MUSIC_PATH = os.path.normpath('Musik')
 
 def filter_playlists(subfolders):
@@ -95,6 +94,7 @@ def print_todos():
     print("\t consider the info in the tags on the music files for matching better")
     print("\t implement caching of file matches")
     print('\t verify how same songs from different albums/versions are handled')
+    print("\t Maybe try matching with different formats or names?")
 
 def main():
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
