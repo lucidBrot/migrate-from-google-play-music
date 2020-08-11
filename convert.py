@@ -5,8 +5,12 @@ import os, sys, csv
 from dataclasses import dataclass
 import re, difflib, sys, glob
 
-# Full Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
+# Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
+
+# Path to where the local music resides. This will be recursively indexed using os.walk
+# No idea if that follows symlinks.
+MUSIC_PATH = os.path.normpath('N:\Files\Musik')
 
 def filter_playlists(subfolders):
     """
@@ -80,6 +84,7 @@ def print_todos():
     print("\t handle the Thumbs Up playlist.")
     print("\t check for surprising cases with more than two rows in a song csv")
     print("\t consider the info in the tags on the music files for matching better")
+    print("\t implement caching of file matches")
 
 def main():
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
@@ -92,14 +97,20 @@ def main():
         print("\tPlaylist: {}".format(playlistname))
 
     print("Indexing local music files...")
-    local_music_files = [ff for ff in glob.glob(os.path.join(MUSICDIR, '**'), recursive=True) if os.path.isfile(file)
-            # todo: better get rid of glob and use walk isntead...
-            # todo: create a variable MUSICDIR
+    local_music_files = os.walk(MUSIC_PATH)
+
+    # it would make sense to operate on the filenames instead of the full paths on one hand. 
+    # On the other hand, it would make things harder to code, and we'd lose the info of directory names containing maybe band information.
+    # So let's first try working on the full paths.
 
     print("Accumulating Contents...")
     for playlistpath in playlists:
-        song_info_list = read_gpm_playlist(playlistpath)
-
+        song_info_list_sorted = read_gpm_playlist(playlistpath)
+        song_path_list = []
+        for song_info in song_info_list_sorted:
+            song_path = find_match("{title}-{artist}".format(title=song_info.title, artist=song_info.artist),
+                local_music_files        
+            )
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == 'help':
