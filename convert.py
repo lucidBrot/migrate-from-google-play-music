@@ -3,6 +3,7 @@
 # Python version 3
 import os, sys, csv
 from dataclasses import dataclass
+import re, difflib, sys, glob
 
 # Full Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
@@ -19,7 +20,7 @@ def filter_playlists(subfolders):
         if not os.path.isdir(os.path.join(folder, 'Tracks')):
             valid=False
         if not valid:
-            print("\tInvalid: {}".format(folder))
+            print("\tInvalid: {}".format(folder), file=sys.stderr)
         if valid:
             yield(folder)
 
@@ -62,12 +63,23 @@ def read_gpm_playlist(playlistdir):
     song_infos_sorted = sorted(song_infos_unsorted, key=lambda x: x[1])
     return song_infos_sorted
 
-
+def find_match(inputname, possible_names):
+    """
+      Return None if no good match found, otherwise return the possible_names[i] that matched well.
+    """
+    # inspired by rhasselbaum's https://gist.github.com/rhasselbaum/e1cf714e21f00741826f
+    # we're asking for exactly one match and set the cutoff quite low - i.e. the match must be good.
+    close_matches = difflib.get_close_matches(track, files, n=1, cutoff=0.1)
+    if close_matches:
+        return close_matches[0]
+    else:
+        return None
 
 def print_todos():
     print("\n--- TODOS ---")
     print("\t handle the Thumbs Up playlist.")
     print("\t check for surprising cases with more than two rows in a song csv")
+    print("\t consider the info in the tags on the music files for matching better")
 
 def main():
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
@@ -78,6 +90,11 @@ def main():
     for playlistpath in playlists:
         playlistname = os.path.basename(playlistpath)
         print("\tPlaylist: {}".format(playlistname))
+
+    print("Indexing local music files...")
+    local_music_files = [ff for ff in glob.glob(os.path.join(MUSICDIR, '**'), recursive=True) if os.path.isfile(file)
+            # todo: better get rid of glob and use walk isntead...
+            # todo: create a variable MUSICDIR
 
     print("Accumulating Contents...")
     for playlistpath in playlists:
