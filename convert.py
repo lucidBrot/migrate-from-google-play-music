@@ -74,15 +74,15 @@ def read_gpm_playlist(playlistdir):
 
     # sort playlist by index
     song_infos_sorted = sorted(song_infos_unsorted, key=lambda x: x[1])
-    return song_infos_sorted
+    return [song_tuple[0] for song_tuple in song_infos_sorted]
 
-def find_match(inputname, possible_names):
+def find_match(trackname, possible_names):
     """
       Return None if no good match found, otherwise return the possible_names[i] that matched well.
     """
     # inspired by rhasselbaum's https://gist.github.com/rhasselbaum/e1cf714e21f00741826f
     # we're asking for exactly one match and set the cutoff quite low - i.e. the match must be good.
-    close_matches = difflib.get_close_matches(track, files, n=1, cutoff=0.1)
+    close_matches = difflib.get_close_matches(trackname, possible_names, n=1, cutoff=0.1)
     if close_matches:
         return close_matches[0]
     else:
@@ -107,7 +107,7 @@ def main():
         print("\tPlaylist: {}".format(playlistname))
 
     print("Indexing local music files...")
-    local_music_files = os.walk(MUSIC_PATH)
+    local_music_files = [filpath for (_root, _dirs, filpath) in os.walk(MUSIC_PATH)]
 
     # it would make sense to operate on the filenames instead of the full paths on one hand. 
     # On the other hand, it would make things a bit harder to code, and we'd lose the info of directory names containing maybe band information. (That is not a good argument. My directories contain no useful info.)
@@ -123,8 +123,8 @@ def main():
                 local_music_files        
             )
             if song_path is None:
-                print("No match found for {}".format(pformat(song_path)))
-                unfound_songs.append(song_path)
+                print("No match found for {}".format(pformat(song_info)))
+                unfound_songs.append(song_info)
             else:
                 # We found the song path that belongs to this song_info!
                 print("Matched {title} by {artist} from Album {album} to path {tpath}".format(
