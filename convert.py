@@ -22,18 +22,24 @@ def filter_playlists(subfolders):
         if valid:
             yield(folder)
 
+def print_todos():
+    print("\n--- TODOS ---")
+    print("\t handle the Thumbs Up playlist.")
+
 def main():
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
     
-    print("Collecting playlist directories...")
+    print("Collecting playlist directories...\n")
     subfolders = [ f.path for f in os.scandir(PLAYLISTS_PATH) if f.is_dir() ]
     playlists_generator = filter_playlists(subfolders)
     for playlistpath in playlists_generator:
-        print("\Playlist: {}".format(playlistpath))
+        playlistname = os.path.basename(playlistpath)
+        print("\tPlaylist: {}".format(playlistname))
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == 'help':
         print("hello. Specify some things in the source file!")
     else:
         main()
+        print_todos()
 
