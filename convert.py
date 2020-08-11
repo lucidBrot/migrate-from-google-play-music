@@ -37,6 +37,7 @@ def read_gpm_playlist(playlistdir):
     """
       Returns a list of song names contained in a GPM Takeout Playlist
     """
+    song_infos_unsorted = []
     tracks_path = os.path.join(playlistdir, 'Tracks')
     # Expected contents of that directory is one file per song, 
     # each file csv-formatted and containing something like this:
@@ -53,7 +54,15 @@ def read_gpm_playlist(playlistdir):
                 if (title.strip() == 'Title') and (artist.strip() == 'Artist') and (album.strip() == 'Album'):
                     # skip headline
                     continue
-                print("considering {} by {} in Album {}".format(title, artist, album))
+                print("reading {} by {}.".format(title, artist))
+                song_info = SongInfo(title= title, album= album, artist= artist, liked= (rating == '5'))
+                song_infos_unsorted.append((song_info, playlist_index))
+
+    # sort playlist by index
+    song_infos_sorted = sorted(song_infos_unsorted, key=lambda x: x[1])
+    return song_infos_sorted
+
+
 
 def print_todos():
     print("\n--- TODOS ---")
@@ -72,7 +81,7 @@ def main():
 
     print("Accumulating Contents...")
     for playlistpath in playlists:
-        db = read_gpm_playlist(playlistpath)
+        song_info_list = read_gpm_playlist(playlistpath)
 
 
 if __name__ == '__main__':
