@@ -4,13 +4,22 @@
 import os, sys, csv
 from dataclasses import dataclass
 import re, difflib, sys, glob
+from pprint import pprint, pformat
+
+DEBUG_LINUX=True
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
+if DEBUG_LINUX:
+    print("WARNING: Debug flag is set to true!", file=sys.stderr)
+    PLAYLISTS_PATH = os.path.normpath('./Google Play Music/Playlists')
 
 # Path to where the local music resides. This will be recursively indexed using os.walk
 # No idea if that follows symlinks.
 MUSIC_PATH = os.path.normpath('N:\Files\Musik')
+if DEBUG_LINUX:
+    print("WARNING: Debug flag is set to true!", file=sys.stderr)
+    MUSIC_PATH = os.path.normpath('Musik')
 
 def filter_playlists(subfolders):
     """
@@ -85,6 +94,7 @@ def print_todos():
     print("\t check for surprising cases with more than two rows in a song csv")
     print("\t consider the info in the tags on the music files for matching better")
     print("\t implement caching of file matches")
+    print('\t verify how same songs from different albums/versions are handled')
 
 def main():
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
@@ -100,21 +110,32 @@ def main():
     local_music_files = os.walk(MUSIC_PATH)
 
     # it would make sense to operate on the filenames instead of the full paths on one hand. 
-    # On the other hand, it would make things harder to code, and we'd lose the info of directory names containing maybe band information.
-    # So let's first try working on the full paths.
+    # On the other hand, it would make things a bit harder to code, and we'd lose the info of directory names containing maybe band information. (That is not a good argument. My directories contain no useful info.)
+    # So let's first try working on the full paths and see how it goes. I think/hope that in case of it going badly, we'd get no matches. I'm not certain if the behaviour of get_close_matches(n=1) is to choose a random one or to fail if there are multiple.
 
     print("Accumulating Contents...")
+    unfound_songs = []
     for playlistpath in playlists:
         song_info_list_sorted = read_gpm_playlist(playlistpath)
         song_path_list = []
         for song_info in song_info_list_sorted:
-            song_path = find_match("{title}-{artist}".format(title=song_info.title, artist=song_info.artist),
+            song_path = find_match("{artist}-{title}-{album}".format(title=song_info.title, artist=song_info.artist, album=song_info.album),
                 local_music_files        
             )
+            if song_path is None:
+                print("No match found for {}".format(pformat(song_path)))
+                unfound_songs.append(song_path)
+            else:
+                # We found the song path that belongs to this song_info!
+                print("Matched {title} by {artist} from Album {album} to path {tpath}".format(
+                    title=song_info.title, album=song_info.album, artist=song_info.artist,
+                    tpath=song_path
+                    ))
+                
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == 'help':
-        print("hello. Specify some things in the source file!")
+        print("hello. Specify some things in the source file with the CAPS LOCKED variables!")
     else:
         main()
         print_todos()
