@@ -119,7 +119,7 @@ def main():
         song_info_list_sorted = read_gpm_playlist(playlistpath)
         song_path_list = []
         for song_info in song_info_list_sorted:
-            song_path = find_match("{artist}-{title}-{album}".format(title=song_info.title, artist=song_info.artist, album=song_info.album),
+            song_path = find_match("{artist}{title}{album}".format(title=song_info.title, artist=song_info.artist, album=song_info.album),
                 local_music_files        
             )
             if song_path is None:
