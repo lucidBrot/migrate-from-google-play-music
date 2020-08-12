@@ -147,6 +147,28 @@ def debug_m(track, music_path=MUSIC_PATH):
     a=find_match(track, local_music_files)
     print(a if a else "No match")
 
+def find_exact_tag_match(local_music_file_infos, song_info):
+    """
+        Returns True if an exact match was found, False otherwise.
+        When the first exact match is found, the search calls match and returns.
+    """
+    for music_file_info in local_music_file_infos:
+        print("[{}] checking {} step 1".format(song_info.title, music_file_info.filename))
+        if music_file_info.is_tag_set():
+            print("[{}] checking {} step 2".format(song_info.title, music_file_info.filename))
+            tag = music_file_info.tag
+            if tag.set_parts_equal(artist=song_info.artist, title=song_info.title, album=song_info.album):
+                # The tags exactly match!
+                print("Exact Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
+                match(song_info, music_file_info.full_path)
+                return True
+            else:
+                print("[{}] checking {} step 3".format(song_info.title, music_file_info.filename))
+                print("Tags did not match. SongInfo vs Tag:")
+                pprint(song_info)
+                pprint(tag)
+    return False
+
 def match(songinfo, path):
     pass
 
@@ -167,8 +189,9 @@ def main():
     print("Indexing local music file tags...")
     for file_info in local_music_file_infos:
         try:
+            # the returns from mutagen are lists, that's why the index 0 everywhere.
             tag=EasyID3(file_info.full_path)
-            file_info.tag = FileTag(artist=(tag['artist'] if 'artist' in tag else ''), album=(tag['album'] if 'album' in tag else ''), title=(tag['title'] if 'title' in tag else ''))
+            file_info.tag = FileTag(artist=(tag['artist'][0] if 'artist' in tag else ''), album=(tag['album'][0] if 'album' in tag else ''), title=(tag['title'][0] if 'title' in tag else ''))
         except ID3NoHeaderError:
             # This is not a music file or has no tags
             file_info.tag = None
@@ -184,23 +207,7 @@ def main():
         song_path_list = []
         for song_info in song_info_list_sorted:
             # try exact tag matching
-            for music_file_info in local_music_file_infos:
-                print("[{}] checking {} step 1".format(song_info.title, music_file_info.filename))
-                if music_file_info.is_tag_set():
-                    print("[{}] checking {} step 2".format(song_info.title, music_file_info.filename))
-                    tag = music_file_info.tag
-                    if tag.set_parts_equal(artist=song_info.artist, title=song_info.title, album=song_info.album):
-                        # The tags exactly match!
-                        print("Exact Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
-                        match(song_info, music_file_info.full_path)
-                        continue
-                    else:
-                        print("[{}] checking {} step 3".format(song_info.title, music_file_info.filename))
-                        print("Tags did not match. SongInfo vs Tag:")
-                        pprint(song_info)
-                        pprint(tag)
-            # end of for loop for visual clarity
-                    
+            found_exact_match = find_exact_tag_match(local_music_file_infos, song_info)                    
 
             # try fuzzy filename matching
             song_path = find_match("{artist}{title}{album}".format(title=song_info.title, artist=song_info.artist, album=song_info.album),
