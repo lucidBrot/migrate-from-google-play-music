@@ -116,7 +116,7 @@ def generate_songlists(mdir=PLAYLISTS_PATH, outdir='./songlists'):
         playlistpath = os.path.join(outdir, playlistname)
         with open("{}.txt".format(playlistpath), 'w+', encoding="utf-8") as sfile:
             for info in song_info_list_sorted:
-                sfile.write("{artist} - {title} - {album}\n".format(artist=info.artist, title=info.artist, album=info.album))
+                sfile.write("{artist} - {title} - {album}\n".format(artist=info.artist, title=info.title, album=info.album))
 
 
 def find_match(trackname, possible_names):
