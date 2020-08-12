@@ -127,6 +127,7 @@ class FileTag:
             result = result and (self.title == title)
         if self.album:
             result = result and (self.album == album)
+        return result
 
 @dataclass
 class FileInfo:
@@ -184,13 +185,20 @@ def main():
         for song_info in song_info_list_sorted:
             # try exact tag matching
             for music_file_info in local_music_file_infos:
+                print("[{}] checking {} step 1".format(song_info.title, music_file_info.filename))
                 if music_file_info.is_tag_set():
+                    print("[{}] checking {} step 2".format(song_info.title, music_file_info.filename))
                     tag = music_file_info.tag
                     if tag.set_parts_equal(artist=song_info.artist, title=song_info.title, album=song_info.album):
                         # The tags exactly match!
                         print("Exact Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
                         match(song_info, music_file_info.full_path)
                         continue
+                    else:
+                        print("[{}] checking {} step 3".format(song_info.title, music_file_info.filename))
+                        print("Tags did not match. SongInfo vs Tag:")
+                        pprint(song_info)
+                        pprint(tag)
             # end of for loop for visual clarity
                     
 
@@ -221,7 +229,7 @@ if __name__ == '__main__':
             print("using current directory {} as MUSIC_PATH".format(os.getcwd()))
             MUSIC_PATH = os.getcwd()
 
-        # always:
-        main()
-        print_todos()
+    # always:
+    main()
+    print_todos()
 
