@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import re, difflib, sys, glob
 from pprint import pprint, pformat
 
-DEBUG_LINUX=True
+DEBUG_LINUX=(os.name=='posix')and True
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
@@ -83,8 +83,8 @@ def find_match(trackname, possible_names):
       Return None if no good match found, otherwise return the possible_names[i] that matched well.
     """
     # inspired by rhasselbaum's https://gist.github.com/rhasselbaum/e1cf714e21f00741826f
-    # we're asking for exactly one match and set the cutoff quite low - i.e. the match must be good.
-    close_matches = difflib.get_close_matches(trackname, possible_names, n=1, cutoff=0.1)
+    # we're asking for exactly one match and set the cutoff quite high - i.e. the match must be good.
+    close_matches = difflib.get_close_matches(trackname, possible_names, n=1, cutoff=0.6)
     if close_matches:
         return close_matches[0]
     else:
@@ -99,6 +99,12 @@ def print_todos(f=sys.stderr):
     print('\t verify how same songs from different albums/versions are handled', file=f)
     print("\t Maybe try matching with different formats or names?", file=f)
 
+def debug_m(track, music_path=MUSIC_PATH):
+    local_music_files_nested = [filpaths for (_root, _dirs, filpaths) in os.walk(music_path)]
+    local_music_files = [filpath for filpaths in local_music_files_nested for filpath in filpaths]
+    a=find_match(track, local_music_files)
+    print(a if a else "No match")
+
 def main():
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
     
@@ -110,7 +116,8 @@ def main():
         print("\tPlaylist: {}".format(playlistname))
 
     print("Indexing local music files...")
-    local_music_files = [filpath for (_root, _dirs, filpath) in os.walk(MUSIC_PATH)]
+    local_music_files_nested = [filpaths for (_root, _dirs, filpaths) in os.walk(MUSIC_PATH)]
+    local_music_files = [filpath for filpaths in local_music_files_nested for filpath in filpaths]
 
     # it would make sense to operate on the filenames instead of the full paths on one hand. 
     # On the other hand, it would make things a bit harder to code, and we'd lose the info of directory names containing maybe band information. (That is not a good argument. My directories contain no useful info.)
