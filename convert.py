@@ -33,7 +33,7 @@ if DEBUG_LINUX:
 
 class MatchSource(Enum):
     EXACT_TAG_MATCH = 1
-    FUZZY_MATCH_ARTIST_TITLE_ALBUM = 2
+    FUZZY = 2
     UNMATCHED = 3
 
 @dataclass
@@ -41,9 +41,13 @@ class MatchTracker:
     match_counts = {}
     unmatched_songs = set()
     playlist_searches = {}
+    fuzzy_details = {}
 
-    def match(self, songinfo, path, match_source: MatchSource):
+    def match(self, songinfo, path, match_source: MatchSource, fuzzy_info: str = None):
         self.match_counts[match_source] = self.match_counts.get(match_source, 0) + 1
+        if match_source == MatchSource.FUZZY and fuzzy_info is not None:
+            self.fuzzy_details[fuzzy_info] = self.fuzzy_details.get(fuzzy_info, 0) + 1
+
 
     def unmatch(self, songinfo):
         self.match(songinfo, None, MatchSource.UNMATCHED)
@@ -129,7 +133,7 @@ def find_match(trackname, possible_names):
     """
     # inspired by rhasselbaum's https://gist.github.com/rhasselbaum/e1cf714e21f00741826f
     # we're asking for exactly one match and set the cutoff quite high - i.e. the match must be good.
-    close_matches = difflib.get_close_matches(trackname, possible_names, n=1, cutoff=0.3)
+    close_matches = difflib.get_close_matches(trackname, possible_names, n=1, cutoff=0.2)
     if close_matches:
         return close_matches[0]
     else:
@@ -229,7 +233,7 @@ def find_fuzzy_match(local_music_files, song_info, searchterm: str, tracker: Mat
             title=song_info.title, album=song_info.album, artist=song_info.artist,
             tpath=song_path
             ))
-        tracker.match(song_info, song_path, MatchSource.FUZZY_MATCH_ARTIST_TITLE_ALBUM)
+        tracker.match(song_info, song_path, MatchSource.FUZZY, fuzzy_info = searchterm)
         return True
 
 def main():
@@ -274,14 +278,31 @@ def main():
             if found_exact_match:
                 continue
 
-            # try fuzzy filename matching
+            # try fuzzy filename matching in various orders
+            # artist, title, album
             found_fuzzy_match_by_artist_title_album = find_fuzzy_match(local_music_files, song_info, "{artist}{title}{album}", tracker)
             if found_fuzzy_match_by_artist_title_album:
                 continue
 
+            # artist, title
+            found_fuzzy_match_by_artist_title = find_fuzzy_match(local_music_files, song_info, "{artist}{title}", tracker)
+            if found_fuzzy_match_by_artist_title:
+                continue
+
+            # artist, album, title
+            found_fuzzy_match_by_artist_album_title = find_fuzzy_match(local_music_files, song_info, "{artist}{album}{title}", tracker)
+            if found_fuzzy_match_by_artist_album_title:
+                continue
+
+            # title
+            found_fuzzy_match_by_title = find_fuzzy_match(local_music_files, song_info, "{title}", tracker)
+            if found_fuzzy_match_by_title:
+                continue
+
             # if we're still here, no match has been found for this song.
             tracker.unmatch(song_info)
-                
+
+    print("\nFuzzy Stats: \n{}".format(pformat(tracker.fuzzy_details)))
     print("\nFound Matches Statistics:\n{}".format(pformat(tracker.match_counts)))
     print("\nSearched Playlists Statistics:\n{}".format(pformat(tracker.playlist_searches)))
                 
