@@ -1,6 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Python version 3
+
+# `python convert.py
+#  Computes everything!
+
+# `python -c "import convert; convert.read_gpm_playlist('/path-to/Google Play Music/Playlists/MyPlaylistDir/')
+#  Computes Songlist
+#  Or to compute them all and save them as files, call `generate_songlists` with
+# `N:\Files\Backups\GPM_export\Takeout>python -c "import convert; convert.generate_songlists();"`
 import os, sys, csv
 from dataclasses import dataclass
 import re, difflib, sys, glob
@@ -97,6 +105,19 @@ def read_gpm_playlist(playlistdir):
     # sort playlist by index
     song_infos_sorted = sorted(song_infos_unsorted, key=lambda x: x[1])
     return [song_tuple[0] for song_tuple in song_infos_sorted]
+
+def generate_songlists(mdir=PLAYLISTS_PATH, outdir='./songlists'):
+    subfolders = [ f.path for f in os.scandir(PLAYLISTS_PATH) if f.is_dir() ]
+    playlists = list(filter_playlists(subfolders))
+    os.makedirs(os.path.normpath(outdir), exist_ok=True)
+    for playlistpath in playlists:
+        song_info_list_sorted = read_gpm_playlist(playlistpath)
+        playlistname = os.path.basename(os.path.normpath(playlistpath))
+        playlistpath = os.path.join(outdir, playlistname)
+        with open("{}.txt".format(playlistpath), 'w+', encoding="utf-8") as sfile:
+            for info in song_info_list_sorted:
+                sfile.write("{artist} - {title} - {album}\n".format(artist=info.artist, title=info.artist, album=info.album))
+
 
 def find_match(trackname, possible_names):
     """
