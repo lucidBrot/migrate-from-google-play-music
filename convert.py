@@ -7,6 +7,7 @@ import re, difflib, sys, glob
 from pprint import pprint, pformat
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3NoHeaderError
+from enum import Enum
 
 DEBUG_LINUX=(os.name=='posix')and True
 
@@ -21,6 +22,17 @@ if DEBUG_LINUX:
 MUSIC_PATH = os.path.normpath('N:\Files\Musik')
 if DEBUG_LINUX:
     MUSIC_PATH = os.path.normpath('Musik')
+
+class MatchSource(Enum):
+    EXACT_TAG_MATCH = 1
+    FUZZY_MATCH_ARTIST_TITLE_ALBUM = 2
+
+@dataclass
+class MatchTracker:
+    match_counts = {}
+
+    def match(self, songinfo, path, match_source: MatchSource):
+        self.match_counts[match_source] = self.match_counts.get(match_source, 0) + 1
 
 def filter_playlists(subfolders):
     """
@@ -147,32 +159,31 @@ def debug_m(track, music_path=MUSIC_PATH):
     a=find_match(track, local_music_files)
     print(a if a else "No match")
 
-def find_exact_tag_match(local_music_file_infos, song_info):
+def find_exact_tag_match(local_music_file_infos, song_info, tracker: MatchTracker):
     """
         Returns True if an exact match was found, False otherwise.
         When the first exact match is found, the search calls match and returns.
     """
     for music_file_info in local_music_file_infos:
-        print("[{}] checking {} step 1".format(song_info.title, music_file_info.filename))
+        ##print("[{}] checking {} step 1".format(song_info.title, music_file_info.filename))
         if music_file_info.is_tag_set():
-            print("[{}] checking {} step 2".format(song_info.title, music_file_info.filename))
+            ##print("[{}] checking {} step 2".format(song_info.title, music_file_info.filename))
             tag = music_file_info.tag
             if tag.set_parts_equal(artist=song_info.artist, title=song_info.title, album=song_info.album):
                 # The tags exactly match!
                 print("Exact Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
-                match(song_info, music_file_info.full_path)
+                tracker.match(song_info, music_file_info.full_path, MatchSource.EXACT_TAG_MATCH)
                 return True
             else:
-                print("[{}] checking {} step 3".format(song_info.title, music_file_info.filename))
-                print("Tags did not match. SongInfo vs Tag:")
-                pprint(song_info)
-                pprint(tag)
+                ##print("[{}] checking {} step 3".format(song_info.title, music_file_info.filename))
+                ##print("Tags did not match. SongInfo vs Tag:")
+                ##pprint(song_info)
+                ##pprint(tag)
+                pass
     return False
 
-def match(songinfo, path):
-    pass
-
 def main():
+    tracker = MatchTracker()
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
     
     print("Collecting playlist directories...\n")
@@ -207,7 +218,7 @@ def main():
         song_path_list = []
         for song_info in song_info_list_sorted:
             # try exact tag matching
-            found_exact_match = find_exact_tag_match(local_music_file_infos, song_info)                    
+            found_exact_match = find_exact_tag_match(local_music_file_infos, song_info, tracker)                    
 
             # try fuzzy filename matching
             song_path = find_match("{artist}{title}{album}".format(title=song_info.title, artist=song_info.artist, album=song_info.album),
@@ -222,8 +233,10 @@ def main():
                     title=song_info.title, album=song_info.album, artist=song_info.artist,
                     tpath=song_path
                     ))
-                match(song_info, song_path)
+                tracker.match(song_info, song_path, MatchSource.FUZZY_MATCH_ARTIST_TITLE_ALBUM)
                 continue
+
+    print("\nFound Matches Statistics:\n{}".format(pformat(tracker.match_counts)))
                 
 
 if __name__ == '__main__':
