@@ -258,6 +258,7 @@ def main():
 
     print("Accumulating Contents...")
     for playlistpath in playlists:
+        print("Accumulating Contents for Playlist {}".format(os.path.basename(playlistpath)))
         song_info_list_sorted = read_gpm_playlist(playlistpath)
         song_path_list = []
         for song_info in song_info_list_sorted:
