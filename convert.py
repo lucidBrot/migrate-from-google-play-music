@@ -40,13 +40,17 @@ class MatchSource(Enum):
 class MatchTracker:
     match_counts = {}
     unmatched_songs = set()
+    playlist_searches = {}
 
     def match(self, songinfo, path, match_source: MatchSource):
         self.match_counts[match_source] = self.match_counts.get(match_source, 0) + 1
 
     def unmatch(self, songinfo):
-        self.match_counts[MatchSource.UNMATCHED] = self.match_counts.get(MatchSource.UNMATCHED, 0) + 1
+        self.match(songinfo, None, MatchSource.UNMATCHED)
         self.unmatched_songs.add(songinfo)
+
+    def increment_search_counter(self, playlist_basename):
+        self.playlist_searches[playlist_basename] = self.playlist_searches.get(playlist_basename, 0) + 1
 
 def filter_playlists(subfolders):
     """
@@ -141,6 +145,7 @@ def print_todos(f=sys.stderr):
     print("\t Maybe try matching with different formats or names?", file=f)
     print("\t Compare audios directly?", file=f)
     print("\t replace dashes and such with whitespace for fuzzy matching?", file=f)
+    print("\t query Shazam?", file=f)
     
 @dataclass
 class FileTag:
@@ -262,21 +267,23 @@ def main():
         song_info_list_sorted = read_gpm_playlist(playlistpath)
         song_path_list = []
         for song_info in song_info_list_sorted:
+            # count number of playlist searches for debugging
+            tracker.increment_search_counter(os.path.basename(playlistpath))
             # try exact tag matching
             found_exact_match = find_exact_tag_match(local_music_file_infos, song_info, tracker)
             if found_exact_match:
-                break
+                continue
 
             # try fuzzy filename matching
             found_fuzzy_match_by_artist_title_album = find_fuzzy_match(local_music_files, song_info, "{artist}{title}{album}", tracker)
             if found_fuzzy_match_by_artist_title_album:
-                break
+                continue
 
             # if we're still here, no match has been found for this song.
             tracker.unmatch(song_info)
                 
-
     print("\nFound Matches Statistics:\n{}".format(pformat(tracker.match_counts)))
+    print("\nSearched Playlists Statistics:\n{}".format(pformat(tracker.playlist_searches)))
                 
 
 if __name__ == '__main__':
