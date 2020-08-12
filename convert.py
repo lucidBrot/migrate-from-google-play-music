@@ -138,13 +138,16 @@ class FileInfo:
         return os.path.splitext(self.filename)[0]
 
     def is_tag_set(self):
-        return not (True if self.tag is None else tag.is_everything_unset())
+        return not (True if self.tag is None else self.tag.is_everything_unset())
 
 def debug_m(track, music_path=MUSIC_PATH):
     local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(music_path) for filpath in filpaths ]
     local_music_files=map(lambda x: x.get_plain_filename(), local_music_file_infos)
     a=find_match(track, local_music_files)
     print(a if a else "No match")
+
+def match(songinfo, path):
+    pass
 
 def main():
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
@@ -186,6 +189,7 @@ def main():
                     if tag.set_parts_equal(artist=song_info.artist, title=song_info.title, album=song_info.album):
                         # The tags exactly match!
                         print("Exact Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
+                        match(song_info, music_file_info.full_path)
                         continue
             # end of for loop for visual clarity
                     
@@ -203,15 +207,21 @@ def main():
                     title=song_info.title, album=song_info.album, artist=song_info.artist,
                     tpath=song_path
                     ))
+                match(song_info, song_path)
                 continue
                 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1 and sys.argv[1] == 'help':
-        print("hello. Specify some things in the source file with the CAPS LOCKED variables!")
-        print("If you're running this in Windows CMD, you might need to `set PYTHONIOENCODING=utf-8` first.")
-        print("It is probably advisable to pipe the stdout into a file so that the important messages from STDERR surface clearly.")
-    else:
+    if len(sys.argv) > 1:
+        if sys.argv[1] == 'help':
+            print("hello. Specify some things in the source file with the CAPS LOCKED variables!")
+            print("If you're running this in Windows CMD, you might need to `set PYTHONIOENCODING=utf-8` first.")
+            print("It is probably advisable to pipe the stdout into a file so that the important messages from STDERR surface clearly.")
+        if sys.argv[1] == 'here':
+            print("using current directory {} as MUSIC_PATH".format(os.getcwd()))
+            MUSIC_PATH = os.getcwd()
+
+        # always:
         main()
         print_todos()
 
