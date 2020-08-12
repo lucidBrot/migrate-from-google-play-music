@@ -5,6 +5,8 @@ import os, sys, csv
 from dataclasses import dataclass
 import re, difflib, sys, glob
 from pprint import pprint, pformat
+from mutagen.easyid3 import EasyID3
+from mutagen.id3 import ID3NoHeaderError
 
 DEBUG_LINUX=(os.name=='posix')and True
 
@@ -84,7 +86,7 @@ def find_match(trackname, possible_names):
     """
     # inspired by rhasselbaum's https://gist.github.com/rhasselbaum/e1cf714e21f00741826f
     # we're asking for exactly one match and set the cutoff quite high - i.e. the match must be good.
-    close_matches = difflib.get_close_matches(trackname, possible_names, n=1, cutoff=0.6)
+    close_matches = difflib.get_close_matches(trackname, possible_names, n=1, cutoff=0.3)
     if close_matches:
         return close_matches[0]
     else:
@@ -98,16 +100,27 @@ def print_todos(f=sys.stderr):
     print("\t implement caching of file matches", file=f)
     print('\t verify how same songs from different albums/versions are handled', file=f)
     print("\t Maybe try matching with different formats or names?", file=f)
-    print("\t Compare audios directly?")
+    print("\t Compare audios directly?", file=f)
+    print("\t replace dashes and such with whitespace for fuzzy matching?", file=f)
+    
+@dataclass
+class FileTag:
+    artist: str
+    album: str
+    title: str
 
 @dataclass
 class FileInfo:
     full_path: str
     filename: str
+    tag: FileTag = None
+
+    def get_plain_filename(self):
+        return os.path.splitext(self.filename)[0]
 
 def debug_m(track, music_path=MUSIC_PATH):
     local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(music_path) for filpath in filpaths ]
-    local_music_files=map(lambda x: x.filename, local_music_file_infos)
+    local_music_files=map(lambda x: x.get_plain_filename(), local_music_file_infos)
     a=find_match(track, local_music_files)
     print(a if a else "No match")
 
@@ -123,10 +136,17 @@ def main():
 
     print("Indexing local music files...")
     local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(MUSIC_PATH) for filpath in filpaths ]
-    local_music_files=map(lambda x: x.filename, local_music_file_infos)
+    local_music_files=map(lambda x: x.get_plain_filename(), local_music_file_infos)
 
     print("Indexing local music file tags...")
-
+    for file_info in local_music_file_infos:
+        try:
+            tag=EasyID3(file_info.full_path)
+            file_info.tag = FileTag(artist=(tag['artist'] if 'artist' in tag else ''), album=(tag['album'] if 'album' in tag else ''), title=(tag['title'] if 'title' in tag else ''))
+        except ID3NoHeaderError:
+            # This is not a music file or has no tags
+            file_info.tag = None
+    
 
     # it would make sense to operate on the filenames instead of the full paths on one hand. 
     # but how to keep track of the actual paths?
@@ -138,6 +158,7 @@ def main():
         song_path_list = []
         for song_info in song_info_list_sorted:
             # try exact tag matching
+
 
             # try fuzzy filename matching
             song_path = find_match("{artist}{title}{album}".format(title=song_info.title, artist=song_info.artist, album=song_info.album),
