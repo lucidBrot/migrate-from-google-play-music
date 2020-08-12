@@ -98,10 +98,16 @@ def print_todos(f=sys.stderr):
     print("\t implement caching of file matches", file=f)
     print('\t verify how same songs from different albums/versions are handled', file=f)
     print("\t Maybe try matching with different formats or names?", file=f)
+    print("\t Compare audios directly?")
+
+@dataclass
+class FileInfo:
+    full_path: str
+    filename: str
 
 def debug_m(track, music_path=MUSIC_PATH):
-    local_music_files_nested = [filpaths for (_root, _dirs, filpaths) in os.walk(music_path)]
-    local_music_files = [filpath for filpaths in local_music_files_nested for filpath in filpaths]
+    local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(music_path) for filpath in filpaths ]
+    local_music_files=map(lambda x: x.filename, local_music_file_infos)
     a=find_match(track, local_music_files)
     print(a if a else "No match")
 
@@ -116,12 +122,14 @@ def main():
         print("\tPlaylist: {}".format(playlistname))
 
     print("Indexing local music files...")
-    local_music_files_nested = [filpaths for (_root, _dirs, filpaths) in os.walk(MUSIC_PATH)]
-    local_music_files = [filpath for filpaths in local_music_files_nested for filpath in filpaths]
+    local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(MUSIC_PATH) for filpath in filpaths ]
+    local_music_files=map(lambda x: x.filename, local_music_file_infos)
+
+    print("Indexing local music file tags...")
+
 
     # it would make sense to operate on the filenames instead of the full paths on one hand. 
-    # On the other hand, it would make things a bit harder to code, and we'd lose the info of directory names containing maybe band information. (That is not a good argument. My directories contain no useful info.)
-    # So let's first try working on the full paths and see how it goes. I think/hope that in case of it going badly, we'd get no matches. I'm not certain if the behaviour of get_close_matches(n=1) is to choose a random one or to fail if there are multiple.
+    # but how to keep track of the actual paths?
 
     print("Accumulating Contents...")
     unfound_songs = []
@@ -129,6 +137,9 @@ def main():
         song_info_list_sorted = read_gpm_playlist(playlistpath)
         song_path_list = []
         for song_info in song_info_list_sorted:
+            # try exact tag matching
+
+            # try fuzzy filename matching
             song_path = find_match("{artist}{title}{album}".format(title=song_info.title, artist=song_info.artist, album=song_info.album),
                 local_music_files        
             )
@@ -141,6 +152,7 @@ def main():
                     title=song_info.title, album=song_info.album, artist=song_info.artist,
                     tpath=song_path
                     ))
+                continue
                 
 
 if __name__ == '__main__':
