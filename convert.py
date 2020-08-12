@@ -109,6 +109,25 @@ class FileTag:
     album: str
     title: str
 
+    def is_everything_unset(self):
+        if self.artist or self.album or self.title:
+            # at least one thing is set
+            if (self.artist == "") and (self.album == "") and (self.title== ""):
+                return True # everything empty string counts as unset
+            else:
+                return False
+        else:
+            return True # no part is set
+
+    def set_parts_equal(self, artist, title, album):
+        result = True
+        if self.artist:
+            result = result and (self.artist == artist)
+        if self.title:
+            result = result and (self.title == title)
+        if self.album:
+            result = result and (self.album == album)
+
 @dataclass
 class FileInfo:
     full_path: str
@@ -117,6 +136,9 @@ class FileInfo:
 
     def get_plain_filename(self):
         return os.path.splitext(self.filename)[0]
+
+    def is_tag_set(self):
+        return not (True if self.tag is None else tag.is_everything_unset())
 
 def debug_m(track, music_path=MUSIC_PATH):
     local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(music_path) for filpath in filpaths ]
@@ -158,7 +180,15 @@ def main():
         song_path_list = []
         for song_info in song_info_list_sorted:
             # try exact tag matching
-
+            for music_file_info in local_music_file_infos:
+                if music_file_info.is_tag_set():
+                    tag = music_file_info.tag
+                    if tag.set_parts_equal(artist=song_info.artist, title=song_info.title, album=song_info.album):
+                        # The tags exactly match!
+                        print("Exact Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
+                        continue
+            # end of for loop for visual clarity
+                    
 
             # try fuzzy filename matching
             song_path = find_match("{artist}{title}{album}".format(title=song_info.title, artist=song_info.artist, album=song_info.album),
