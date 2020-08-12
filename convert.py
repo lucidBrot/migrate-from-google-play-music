@@ -61,15 +61,18 @@ def read_gpm_playlist(playlistdir):
     
     song_csvs = [ f.path for f in os.scandir(tracks_path) if f.is_file() ]
     for song_csv in song_csvs:
-        with open(song_csv, encoding="utf-8") as csvfile:
-            rows = csv.reader(csvfile)
-            for title, album, artist, duration_ms, rating, play_count, removed, playlist_index in rows:
-                if (title.strip() == 'Title') and (artist.strip() == 'Artist') and (album.strip() == 'Album'):
-                    # skip headline
-                    continue
-                print("reading {} by {}.".format(title, artist))
-                song_info = SongInfo(title= title, album= album, artist= artist, liked= (rating == '5'))
-                song_infos_unsorted.append((song_info, playlist_index))
+        try:
+            with open(song_csv, encoding="utf-8") as csvfile:
+                rows = csv.reader(csvfile)
+                for title, album, artist, duration_ms, rating, play_count, removed, playlist_index in rows:
+                    if (title.strip() == 'Title') and (artist.strip() == 'Artist') and (album.strip() == 'Album'):
+                        # skip headline
+                        continue
+                    print("Reading GPM  {} by {}.".format(title, artist))
+                    song_info = SongInfo(title= title, album= album, artist= artist, liked= (rating == '5'))
+                    song_infos_unsorted.append((song_info, playlist_index))
+        except UnicodeEncodeError as e:
+            print("INFO: Skipping file {} due to Unicode Reading Error.".format(song_csv))
 
     # sort playlist by index
     song_infos_sorted = sorted(song_infos_unsorted, key=lambda x: x[1])
@@ -87,14 +90,14 @@ def find_match(trackname, possible_names):
     else:
         return None
 
-def print_todos():
-    print("\n--- TODOS ---")
-    print("\t handle the Thumbs Up playlist.")
-    print("\t check for surprising cases with more than two rows in a song csv")
-    print("\t consider the info in the tags on the music files for matching better")
-    print("\t implement caching of file matches")
-    print('\t verify how same songs from different albums/versions are handled')
-    print("\t Maybe try matching with different formats or names?")
+def print_todos(f=sys.stderr):
+    print("\n--- TODOS ---", file=f)
+    print("\t handle the Thumbs Up playlist.", file=f)
+    print("\t check for surprising cases with more than two rows in a song csv", file=f)
+    print("\t consider the info in the tags on the music files for matching better", file=f)
+    print("\t implement caching of file matches", file=f)
+    print('\t verify how same songs from different albums/versions are handled', file=f)
+    print("\t Maybe try matching with different formats or names?", file=f)
 
 def main():
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
@@ -136,6 +139,8 @@ def main():
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == 'help':
         print("hello. Specify some things in the source file with the CAPS LOCKED variables!")
+        print("If you're running this in Windows CMD, you might need to `set PYTHONIOENCODING=utf-8` first.")
+        print("It is probably advisable to pipe the stdout into a file so that the important messages from STDERR surface clearly.")
     else:
         main()
         print_todos()
