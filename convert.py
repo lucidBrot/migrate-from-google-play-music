@@ -133,7 +133,7 @@ def find_match(trackname, possible_names):
     """
     # inspired by rhasselbaum's https://gist.github.com/rhasselbaum/e1cf714e21f00741826f
     # we're asking for exactly one match and set the cutoff quite high - i.e. the match must be good.
-    close_matches = difflib.get_close_matches(trackname, possible_names, n=1, cutoff=0.2)
+    close_matches = difflib.get_close_matches(trackname, possible_names, n=1, cutoff=0.3)
     if close_matches:
         return close_matches[0]
     else:
@@ -229,7 +229,7 @@ def find_fuzzy_match(local_music_files, song_info, searchterm: str, tracker: Mat
         return False
     else:
         # We found the song path that belongs to this song_info!
-        print("Matched {title} by {artist} from Album {album} to path {tpath}".format(
+        print("Fuzzy Match for {title} by {artist} from Album {album} to path {tpath}".format(
             title=song_info.title, album=song_info.album, artist=song_info.artist,
             tpath=song_path
             ))
