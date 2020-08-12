@@ -26,13 +26,19 @@ if DEBUG_LINUX:
 class MatchSource(Enum):
     EXACT_TAG_MATCH = 1
     FUZZY_MATCH_ARTIST_TITLE_ALBUM = 2
+    UNMATCHED = 3
 
 @dataclass
 class MatchTracker:
     match_counts = {}
+    unmatched_songs = set()
 
     def match(self, songinfo, path, match_source: MatchSource):
         self.match_counts[match_source] = self.match_counts.get(match_source, 0) + 1
+
+    def unmatch(self, songinfo):
+        self.match_counts[MatchSource.UNMATCHED] = self.match_counts.get(MatchSource.UNMATCHED, 0) + 1
+        self.unmatched_songs.add(songinfo)
 
 def filter_playlists(subfolders):
     """
@@ -50,7 +56,7 @@ def filter_playlists(subfolders):
         if valid:
             yield(folder)
 
-@dataclass
+@dataclass(frozen=True)
 class SongInfo:
     """
       Basically a Named Tuple for storing info of a song
@@ -182,6 +188,24 @@ def find_exact_tag_match(local_music_file_infos, song_info, tracker: MatchTracke
                 pass
     return False
 
+def find_fuzzy_match(local_music_files, song_info, searchterm: str, tracker: MatchTracker):
+    """
+        Return True if found, false otherwise. If found, calls match.
+    """
+    song_path = find_match(searchterm.format(title=song_info.title, artist=song_info.artist, album=song_info.album),
+        local_music_files        
+    )
+    if song_path is None:
+        return False
+    else:
+        # We found the song path that belongs to this song_info!
+        print("Matched {title} by {artist} from Album {album} to path {tpath}".format(
+            title=song_info.title, album=song_info.album, artist=song_info.artist,
+            tpath=song_path
+            ))
+        tracker.match(song_info, song_path, MatchSource.FUZZY_MATCH_ARTIST_TITLE_ALBUM)
+        return True
+
 def main():
     tracker = MatchTracker()
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
@@ -212,29 +236,23 @@ def main():
     # but how to keep track of the actual paths?
 
     print("Accumulating Contents...")
-    unfound_songs = []
     for playlistpath in playlists:
         song_info_list_sorted = read_gpm_playlist(playlistpath)
         song_path_list = []
         for song_info in song_info_list_sorted:
             # try exact tag matching
-            found_exact_match = find_exact_tag_match(local_music_file_infos, song_info, tracker)                    
+            found_exact_match = find_exact_tag_match(local_music_file_infos, song_info, tracker)
+            if found_exact_match:
+                break
 
             # try fuzzy filename matching
-            song_path = find_match("{artist}{title}{album}".format(title=song_info.title, artist=song_info.artist, album=song_info.album),
-                local_music_files        
-            )
-            if song_path is None:
-                print("No match found for {}".format(pformat(song_info)))
-                unfound_songs.append(song_info)
-            else:
-                # We found the song path that belongs to this song_info!
-                print("Matched {title} by {artist} from Album {album} to path {tpath}".format(
-                    title=song_info.title, album=song_info.album, artist=song_info.artist,
-                    tpath=song_path
-                    ))
-                tracker.match(song_info, song_path, MatchSource.FUZZY_MATCH_ARTIST_TITLE_ALBUM)
-                continue
+            found_fuzzy_match_by_artist_title_album = find_fuzzy_match(local_music_files, song_info, "{artist}{title}{album}", tracker)
+            if found_fuzzy_match_by_artist_title_album:
+                break
+
+            # if we're still here, no match has been found for this song.
+            tracker.unmatch(song_info)
+                
 
     print("\nFound Matches Statistics:\n{}".format(pformat(tracker.match_counts)))
                 
