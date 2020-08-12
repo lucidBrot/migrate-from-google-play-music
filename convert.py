@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 # Python version 3
 
-# `python convert.py
+# `python convert.py > out.txt`
 #  Computes everything!
 
-# `python -c "import convert; convert.read_gpm_playlist('/path-to/Google Play Music/Playlists/MyPlaylistDir/')
+# `python -c "import convert; convert.read_gpm_playlist('/path-to/Google Play Music/Playlists/MyPlaylistDir/')`
 #  Computes Songlist
 #  Or to compute them all and save them as files, call `generate_songlists` with
 # `N:\Files\Backups\GPM_export\Takeout>python -c "import convert; convert.generate_songlists();"`
@@ -16,6 +16,7 @@ from pprint import pprint, pformat
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3NoHeaderError
 from enum import Enum
+import mutagen
 
 DEBUG_LINUX=(os.name=='posix')and True
 
@@ -42,12 +43,18 @@ class MatchTracker:
     unmatched_songs = set()
     playlist_searches = {}
     fuzzy_details = {}
+    num_songs_missing = {}
 
     def match(self, songinfo, path, match_source: MatchSource, fuzzy_info: str = None):
         self.match_counts[match_source] = self.match_counts.get(match_source, 0) + 1
         if match_source == MatchSource.FUZZY and fuzzy_info is not None:
             self.fuzzy_details[fuzzy_info] = self.fuzzy_details.get(fuzzy_info, 0) + 1
 
+    def unmatch_for_playlist(self, playlist):
+        """
+            Keeps track of which playlists are incomplete.
+        """
+        self.num_songs_missing[playlist] = self.num_songs_missing.get(playlist, 0) + 1
 
     def unmatch(self, songinfo):
         self.match(songinfo, None, MatchSource.UNMATCHED)
@@ -55,6 +62,19 @@ class MatchTracker:
 
     def increment_search_counter(self, playlist_basename):
         self.playlist_searches[playlist_basename] = self.playlist_searches.get(playlist_basename, 0) + 1
+
+def print_todos(f=sys.stderr):
+    print("\n--- TODOS ---", file=f)
+    print("\t handle the Thumbs Up playlist.", file=f)
+    print("\t check for surprising cases with more than two rows in a song csv", file=f)
+    print("\t consider the info in the tags on the music files for better fuzzy matching", file=f)
+    print("\t implement caching of file matches", file=f)
+    print('\t verify how same songs from different albums/versions are handled', file=f)
+    print("\t Maybe try matching with different formats or names?", file=f)
+    print("\t Compare audios directly?", file=f)
+    print("\t replace dashes and such with whitespace for fuzzy matching?", file=f)
+    print("\t query Shazam?", file=f)
+    print("\t Deal with capslock, remove numbers longer than 4 or so digits", file=f)
 
 def filter_playlists(subfolders):
     """
@@ -138,18 +158,6 @@ def find_match(trackname, possible_names):
         return close_matches[0]
     else:
         return None
-
-def print_todos(f=sys.stderr):
-    print("\n--- TODOS ---", file=f)
-    print("\t handle the Thumbs Up playlist.", file=f)
-    print("\t check for surprising cases with more than two rows in a song csv", file=f)
-    print("\t consider the info in the tags on the music files for matching better", file=f)
-    print("\t implement caching of file matches", file=f)
-    print('\t verify how same songs from different albums/versions are handled', file=f)
-    print("\t Maybe try matching with different formats or names?", file=f)
-    print("\t Compare audios directly?", file=f)
-    print("\t replace dashes and such with whitespace for fuzzy matching?", file=f)
-    print("\t query Shazam?", file=f)
     
 @dataclass
 class FileTag:
@@ -260,6 +268,14 @@ def main():
         except ID3NoHeaderError:
             # This is not a music file or has no tags
             file_info.tag = None
+            try:
+                # OOOr maybe it is a FLAC file instead of an mp3 file
+                # or anything else... let the library guess...
+                tag = mutagen.File(file_info.full_path)
+                if tag is not None:
+                    file_info.tag = FileTag(artist=(tag['artist'][0] if 'artist' in tag else ''), album=(tag['album'][0] if 'album' in tag else ''), title=(tag['title'][0] if 'title' in tag else ''))
+            except mutagen.mp3.HeaderNotFoundError as err:
+                file_info.tag = None # happens. "can't sync to MPEG frame" is the ~800th check, so it's probably just not a music file.
     
 
     # it would make sense to operate on the filenames instead of the full paths on one hand. 
@@ -267,13 +283,14 @@ def main():
 
     print("Accumulating Contents...")
     for playlistpath in playlists:
-        print("Accumulating Contents for Playlist {}".format(os.path.basename(playlistpath)))
+        playlistname = os.path.basename(playlistpath)
+        print("Accumulating Contents for Playlist {}".format(playlistname))
         song_info_list_sorted = read_gpm_playlist(playlistpath)
         song_path_list = []
         for song_info in song_info_list_sorted:
             # count number of playlist searches for debugging
-            tracker.increment_search_counter(os.path.basename(playlistpath))
-            # try exact tag matching
+            tracker.increment_search_counter(playlistname)
+            # try exact tag matching - for MP3 files only
             found_exact_match = find_exact_tag_match(local_music_file_infos, song_info, tracker)
             if found_exact_match:
                 continue
@@ -301,10 +318,13 @@ def main():
 
             # if we're still here, no match has been found for this song.
             tracker.unmatch(song_info)
+            tracker.unmatch_for_playlist(playlistname)
 
+    print("\nUnmatched Songs: \n{}\n#End List of Unmatched Songs".format(pformat(tracker.unmatched_songs)))
     print("\nFuzzy Stats: \n{}".format(pformat(tracker.fuzzy_details)))
     print("\nFound Matches Statistics:\n{}".format(pformat(tracker.match_counts)))
     print("\nSearched Playlists Statistics:\n{}".format(pformat(tracker.playlist_searches)))
+    print("\nIncompleteness of Playlists (Number of missing Songs):\n{}".format(pformat(tracker.num_songs_missing)))
                 
 
 if __name__ == '__main__':
