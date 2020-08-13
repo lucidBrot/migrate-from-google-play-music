@@ -283,6 +283,16 @@ def x_fuzzily_contains_y(x:str, y:str):
     else:
         return False
 
+def best_bitrate_file(mfi_filelist):
+    if len(mfi_filelist) < 1:
+        return None
+    fl = [(mutagen.File(item.full_path).info.bitrate, item) for item in mfi_filelist]
+    sl = sorted(fl, reverse=True, key=lambda x:x[0])
+    return sl[0][1]
+
+def kinda_equal(a, b):
+    return x_fuzzily_contains_y(a,b) and x_fuzzily_contains_y(b,a)
+
 def tags_contain_info(local_music_file_infos, song_info, tracker):
     """
         Return True if a match found
@@ -311,6 +321,12 @@ def tags_contain_info(local_music_file_infos, song_info, tracker):
                 n=num_found, title=song_info.title, artist=song_info.artist, album=song_info.album,
                 options = pformat(list(map(lambda x: x.full_path, found_mfi_options)))
                 ))
+            if len(found_mfi_options) < 20: # just so we dont take too long
+                if all([kinda_equal(a.filename,b.filename) for a in found_mfi_options for b in found_mfi_options]):
+                    best_bitrate_f = best_bitrate_file(found_mfi_options)
+                    print("... choosing the best bitrate file: {}".format(best_bitrate_f.full_path))
+                    tracker.match(song_info, best_bitrate_f.full_path, MatchSource.TAGS_CONTAIN)
+                    return True
         return False
 
 def filepath_contains_info(local_music_file_infos, song_info, tracker):
@@ -334,6 +350,13 @@ def filepath_contains_info(local_music_file_infos, song_info, tracker):
                 n=num_found, title=song_info.title, artist=song_info.artist, album=song_info.album,
                 options = pformat(list(map(lambda x: x.full_path, found_mfi_options)))
                 ))
+            if len(found_mfi_options) < 20: # just so we dont take too long
+                if all([kinda_equal(a.filename,b.filename) for a in found_mfi_options for b in found_mfi_options]):
+                    best_bitrate_f = best_bitrate_file(found_mfi_options)
+                    print("... choosing the best bitrate file: {}".format(best_bitrate_f.full_path))
+                    tracker.match(song_info, best_bitrate_f.full_path, MatchSource.PATH_CONTAINS)
+                    return True
+            
         return False
 
 def folders_of_path(folderpath):
