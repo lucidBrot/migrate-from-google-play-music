@@ -39,7 +39,7 @@ if DEBUG_LINUX:
 # Path to where the export from GPM resides.
 # Files are assumed to be lower quality
 # Also add any other fallback paths here.
-GPM_FALLBACK_TRACK_PATH = [
+GPM_FALLBACK_TRACK_PATHS = [
         os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Tracks'),
         os.path.normpath('F:\PlayMusic'),
         ]
@@ -207,6 +207,23 @@ class FileInfo:
 
     def is_tag_set(self):
         return not (True if self.tag is None else self.tag.is_everything_unset())
+
+    def update_from_fs(self):
+        try:
+            # the returns from mutagen are lists, that's why the index 0 everywhere.
+            tag=EasyID3(self.full_path)
+            self.tag = FileTag(artist=(tag['artist'][0] if 'artist' in tag else ''), album=(tag['album'][0] if 'album' in tag else ''), title=(tag['title'][0] if 'title' in tag else ''))
+        except ID3NoHeaderError:
+            # This is not a music file or has no tags
+            self.tag = None
+            try:
+                # OOOr maybe it is a FLAC file instead of an mp3 file
+                # or anything else... let the library guess...
+                tag = mutagen.File(self.full_path)
+                if tag is not None:
+                    self.tag = FileTag(artist=(tag['artist'][0] if 'artist' in tag else ''), album=(tag['album'][0] if 'album' in tag else ''), title=(tag['title'][0] if 'title' in tag else ''))
+            except mutagen.mp3.HeaderNotFoundError as err:
+                self.tag = None # happens. "can't sync to MPEG frame" is the ~800th check, so it's probably just not a music file.
 
 def debug_m(track, music_path=MUSIC_PATH):
     local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(music_path) for filpath in filpaths ]
@@ -389,23 +406,20 @@ def main():
 
     print("Indexing local music file tags...")
     for file_info in local_music_file_infos:
-        try:
-            # the returns from mutagen are lists, that's why the index 0 everywhere.
-            tag=EasyID3(file_info.full_path)
-            file_info.tag = FileTag(artist=(tag['artist'][0] if 'artist' in tag else ''), album=(tag['album'][0] if 'album' in tag else ''), title=(tag['title'][0] if 'title' in tag else ''))
-        except ID3NoHeaderError:
-            # This is not a music file or has no tags
-            file_info.tag = None
-            try:
-                # OOOr maybe it is a FLAC file instead of an mp3 file
-                # or anything else... let the library guess...
-                tag = mutagen.File(file_info.full_path)
-                if tag is not None:
-                    file_info.tag = FileTag(artist=(tag['artist'][0] if 'artist' in tag else ''), album=(tag['album'][0] if 'album' in tag else ''), title=(tag['title'][0] if 'title' in tag else ''))
-            except mutagen.mp3.HeaderNotFoundError as err:
-                file_info.tag = None # happens. "can't sync to MPEG frame" is the ~800th check, so it's probably just not a music file.
+        file_info.update_from_fs()
 
-    print("Indexing fallback file tags") # since we expect exact matches on the tags
+    print("Indexing fallback...") 
+    for fallback in GPM_FALLBACK_TRACK_PATHS:
+        fbpath = os.path.normpath(fallback)
+
+        print("Indexing local fallback music files for {} ...".format(fbpath))
+        fallback_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(fbpath) for filpath in filpaths if not is_ignored(dirpath) ]
+        fallback_music_files=map(lambda x: x.get_plain_filename(), fallback_music_file_infos)
+
+        print("Indexing local fallback music tags for {} ...".format(fbpath))
+        for file_info in fallback_music_file_infos:
+            file_info.update_from_fs()
+
     
 
     # it would make sense to operate on the filenames instead of the full paths on one hand. 
