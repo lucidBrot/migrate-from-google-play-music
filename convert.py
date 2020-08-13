@@ -25,6 +25,7 @@ DEBUG_LINUX=(os.name=='posix')and False
 USE_UNRELIABLE_METHODS = False
 IGNORE_MUSIC_FOLDERS=['@eaDir']
 HANDLE_THUMBS_UP=True
+COPY_FALLBACK_GPM_MUSIC_TO_MUSIC_PATH=True
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
@@ -55,6 +56,27 @@ class MatchSource(Enum):
     PATH_CONTAINS = 6
     SUBSTRING_TAG_MATCH = 7
 
+@dataclass()
+class Playlist:
+    """
+        After collecting, the data must be SOMEWHERE. Here.
+    """
+    name: str
+    content: list = None
+    # Either fully qualified paths or a placeholder for later correction. Anything that is not a path MUST start with "PLACEHOLDER:"
+
+    def add(self, line: str):
+        if self.content is None:
+            self.content = []
+
+        self.content.append(line)
+
+    def get_content(self):
+        if self.content is None:
+            return []
+        else:
+            return self.content
+
 @dataclass
 class MatchTracker:
     match_counts : dict
@@ -73,12 +95,15 @@ class MatchTracker:
         self.num_songs_missing = {}
 
 
-    def match(self, songinfo, path, match_source: MatchSource, fuzzy_info: str = None):
+    def match(self, songinfo, path, match_source: MatchSource, playlist: Playlist, fuzzy_info: str = None):
         self.match_counts[match_source] = self.match_counts.get(match_source, 0) + 1
         if match_source == MatchSource.FUZZY and fuzzy_info is not None:
             self.fuzzy_details[fuzzy_info] = self.fuzzy_details.get(fuzzy_info, 0) + 1
         if match_source == MatchSource.SUBSTRING_TAG_MATCH:
             self.subbed_songs.add(songinfo)
+        # store result
+        if playlist != None:
+            playlist.add(path)
 
     def unmatch_for_playlist(self, playlist):
         """
@@ -87,7 +112,7 @@ class MatchTracker:
         self.num_songs_missing[playlist] = self.num_songs_missing.get(playlist, 0) + 1
 
     def unmatch(self, songinfo):
-        self.match(songinfo, None, MatchSource.UNMATCHED)
+        self.match(songinfo, None, MatchSource.UNMATCHED, playlist=None)
         self.unmatched_songs.add(songinfo)
 
     def increment_search_counter(self, playlist_basename):
@@ -275,7 +300,7 @@ def debug_m(track, music_path=MUSIC_PATH):
     a=find_match(track, local_music_files)
     print(a if a else "No match")
 
-def find_exact_tag_match(local_music_file_infos, song_info, tracker: MatchTracker):
+def find_exact_tag_match(local_music_file_infos, song_info, tracker: MatchTracker, playlist):
     """
         Returns True if an exact match was found, False otherwise.
         When the first exact match is found, the search calls match and returns.
@@ -288,7 +313,7 @@ def find_exact_tag_match(local_music_file_infos, song_info, tracker: MatchTracke
             if tag.set_parts_equal(artist=song_info.artist, title=song_info.title, album=song_info.album):
                 # The tags exactly match!
                 print("Exact Tag Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
-                tracker.match(song_info, music_file_info.full_path, MatchSource.EXACT_TAG_MATCH)
+                tracker.match(song_info, music_file_info.full_path, MatchSource.EXACT_TAG_MATCH, playlist=playlist)
                 return True
             else:
                 ##print("[{}] checking {} step 3".format(song_info.title, music_file_info.filename))
@@ -298,7 +323,7 @@ def find_exact_tag_match(local_music_file_infos, song_info, tracker: MatchTracke
                 pass
     return False
 
-def find_substring_tag_match(fallback_music_file_infos, song_info, fallback_tracker):
+def find_substring_tag_match(fallback_music_file_infos, song_info, fallback_tracker, playlist: Playlist):
     for music_file_info in fallback_music_file_infos:
         if music_file_info.is_tag_set():
             tag = music_file_info.tag
@@ -306,13 +331,13 @@ def find_substring_tag_match(fallback_music_file_infos, song_info, fallback_trac
                 if (not tag.album) or (not song_info.album) or tag.album in song_info.album:
                     if (not tag.artist) or (not song_info.artist) or tag.artist in song_info.artist:
                         print("Substring Tag Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
-                        fallback_tracker.match(song_info, music_file_info.full_path, MatchSource.SUBSTRING_TAG_MATCH)
+                        fallback_tracker.match(song_info, music_file_info.full_path, MatchSource.SUBSTRING_TAG_MATCH, playlist=playlist)
                         return True
 
     return False
 
 
-def find_fuzzy_tag_match(local_music_file_infos, song_info, tracker: MatchTracker):
+def find_fuzzy_tag_match(local_music_file_infos, song_info, tracker: MatchTracker, playlist: Playlist):
     possibilities = ["{}{}".format(mf_info.tag.title, mf_info.tag.artist) for mf_info in local_music_file_infos if mf_info.is_tag_set()]
     found = find_match("{}{}".format(song_info.title, song_info.artist), possibilities, cutoff=0.4)
     if found is not None:
@@ -324,11 +349,11 @@ def find_fuzzy_tag_match(local_music_file_infos, song_info, tracker: MatchTracke
         print("Fuzzy Tag Match for {title} by {artist} from Album {album} to path {tpath}".format(
                 title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=found_path
             ))
-        tracker.match(song_info, found_path, MatchSource.FUZZY_TAG_MATCH)
+        tracker.match(song_info, found_path, MatchSource.FUZZY_TAG_MATCH, playlist=playlist)
         return True
     return False
 
-def find_fuzzy_match(local_music_files, song_info, searchterm: str, tracker: MatchTracker):
+def find_fuzzy_match(local_music_files, song_info, searchterm: str, tracker: MatchTracker, playlist: Playlist):
     """
         Return True if found, false otherwise. If found, calls match.
     """
@@ -343,7 +368,7 @@ def find_fuzzy_match(local_music_files, song_info, searchterm: str, tracker: Mat
             title=song_info.title, album=song_info.album, artist=song_info.artist,
             tpath=song_path
             ))
-        tracker.match(song_info, song_path, MatchSource.FUZZY, fuzzy_info = searchterm)
+        tracker.match(song_info, song_path, MatchSource.FUZZY, fuzzy_info = searchterm, playlist = playlist)
         return True
 
 def x_fuzzily_contains_y(x:str, y:str):
@@ -373,7 +398,7 @@ def best_bitrate_file(mfi_filelist):
 def kinda_equal(a, b):
     return x_fuzzily_contains_y(a,b) and x_fuzzily_contains_y(b,a)
 
-def tags_contain_info(local_music_file_infos, song_info, tracker):
+def tags_contain_info(local_music_file_infos, song_info, tracker, playlist: Playlist):
     """
         Return True if a match found
     """
@@ -393,7 +418,7 @@ def tags_contain_info(local_music_file_infos, song_info, tracker):
         print("TCInfo found match for {title} by {artist} from Album {album} to path {tpath}".format(
             title=song_info.title, artist=song_info.artist, album=song_info.album, tpath=found_mfi_options[0].full_path
             ))
-        tracker.match(song_info, found_mfi_options[0].full_path, MatchSource.TAGS_CONTAIN)
+        tracker.match(song_info, found_mfi_options[0].full_path, MatchSource.TAGS_CONTAIN, playlist=playlist)
         return True
     else:
         if num_found > 1:
@@ -405,11 +430,11 @@ def tags_contain_info(local_music_file_infos, song_info, tracker):
                 if all([kinda_equal(a.filename,b.filename) for a in found_mfi_options for b in found_mfi_options]):
                     best_bitrate_f = best_bitrate_file(found_mfi_options)
                     print("... choosing the best bitrate file: {}".format(best_bitrate_f.full_path))
-                    tracker.match(song_info, best_bitrate_f.full_path, MatchSource.TAGS_CONTAIN)
+                    tracker.match(song_info, best_bitrate_f.full_path, MatchSource.TAGS_CONTAIN, playlist=playlist)
                     return True
         return False
 
-def filepath_contains_info(local_music_file_infos, song_info, tracker):
+def filepath_contains_info(local_music_file_infos, song_info, tracker, playlist: Playlist):
     found_mfi_options = []
     for mfi in local_music_file_infos:
         if x_fuzzily_contains_y(x=mfi.full_path, y=song_info.title):
@@ -422,7 +447,7 @@ def filepath_contains_info(local_music_file_infos, song_info, tracker):
         print("PathInfo found match for {title} by {artist} from Album {album} to path {tpath}".format(
             title=song_info.title, artist=song_info.artist, album=song_info.album, tpath=found_mfi_options[0].full_path
             ))
-        tracker.match(song_info, found_mfi_options[0].full_path, MatchSource.PATH_CONTAINS)
+        tracker.match(song_info, found_mfi_options[0].full_path, MatchSource.PATH_CONTAINS, playlist=playlist)
         return True
     else:
         if num_found > 1:
@@ -434,7 +459,7 @@ def filepath_contains_info(local_music_file_infos, song_info, tracker):
                 if all([kinda_equal(a.filename,b.filename) for a in found_mfi_options for b in found_mfi_options]):
                     best_bitrate_f = best_bitrate_file(found_mfi_options)
                     print("... choosing the best bitrate file: {}".format(best_bitrate_f.full_path))
-                    tracker.match(song_info, best_bitrate_f.full_path, MatchSource.PATH_CONTAINS)
+                    tracker.match(song_info, best_bitrate_f.full_path, MatchSource.PATH_CONTAINS, playlist=playlist)
                     return True
             
         return False
@@ -481,8 +506,7 @@ def main():
         for file_info in fallback_music_file_infos:
             file_info.update_tag_from_fs()
 
-    # it would make sense to operate on the filenames instead of the full paths on one hand. 
-    # but how to keep track of the actual paths?
+    output_playlists = [] # List of Playlist objects
 
     print("Accumulating Contents...")
     # hackaround for Thumbs up Playlist: add it and handle it separately
@@ -498,6 +522,9 @@ def main():
             print("Accumulating Contents for Playlist {}".format(playlistname))
             song_info_list_sorted = read_gpm_playlist(PLAYLISTS_PATH, trackdir="Thumbs up")
         song_path_list = []
+        # instantiate playlist object for later use
+        playlist=Playlist(name=playlistname)
+        output_playlists.append(playlist)
         for song_info in song_info_list_sorted:
             # count number of playlist searches for debugging
             tracker.increment_search_counter(playlistname)
@@ -519,7 +546,7 @@ def main():
                     # restore at the end of loop iteration
 
                 # try exact tag matching - for MP3 files only
-                found_exact_match = find_exact_tag_match(local_music_file_infos, song_info, tracker)
+                found_exact_match = find_exact_tag_match(local_music_file_infos, song_info, tracker, playlist=playlist)
                 if found_exact_match:
                     match_found=True
                     break
@@ -534,7 +561,7 @@ def main():
                         ]
                 for tec in fuzzy_match_techniques:
                     # if found, break and continue with next song
-                    found_fuzzy_match = find_fuzzy_match(local_music_files, song_info, tec, tracker)
+                    found_fuzzy_match = find_fuzzy_match(local_music_files, song_info, tec, tracker, playlist=playlist)
                     if found_fuzzy_match:
                         break
                 if found_fuzzy_match:
@@ -543,31 +570,31 @@ def main():
                     break
 
                 # try a simple heuristic of whether the tags contain the relevant title and artist
-                if tags_contain_info(local_music_file_infos, song_info, tracker):
+                if tags_contain_info(local_music_file_infos, song_info, tracker, playlist=playlist):
                     match_found=True
                     break
 
                 # try a heuristic on the file path (full path, not just name)
-                if filepath_contains_info(local_music_file_infos, song_info, tracker):
+                if filepath_contains_info(local_music_file_infos, song_info, tracker, playlist=playlist):
                     match_found=True
                     break
 
                 # try things that are likely to guess wrongly
                 if USE_UNRELIABLE_METHODS:
                     # try fuzzy tag matching
-                    found_fuzzy_tag_match = find_fuzzy_tag_match(local_music_file_infos, song_info, tracker)
+                    found_fuzzy_tag_match = find_fuzzy_tag_match(local_music_file_infos, song_info, tracke, playlist=playlistr)
                     if found_fuzzy_tag_match:
                         match_found=True
                         break
 
                 # Not found... let's use the fallback GPM export (if set)
                 # Since the Tags should be correct there, we only check for exact matches. But technically we could also run the other checks.
-                found_exact_gpm_match = find_exact_tag_match(fallback_music_file_infos, song_info, fallback_tracker)
+                found_exact_gpm_match = find_exact_tag_match(fallback_music_file_infos, song_info, fallback_tracker, playlist=playlist)
                 if found_exact_gpm_match:
                     match_found=True
                     break
                 # But since gpm seems to cut off some parts of long titles, let's also check for substrings
-                if find_substring_tag_match(fallback_music_file_infos, song_info, fallback_tracker):
+                if find_substring_tag_match(fallback_music_file_infos, song_info, fallback_tracker, playlist=playlist):
                     match_found=True
                     break
 
@@ -607,4 +634,5 @@ if __name__ == '__main__':
     main()
     print_todos()
     print("Time: {}".format(datetime.now() - startTime))
+    print("Done", file=sys.stderr)
 
