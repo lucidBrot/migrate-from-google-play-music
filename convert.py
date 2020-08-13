@@ -19,7 +19,8 @@ from enum import Enum
 import mutagen
 from datetime import datetime
 
-DEBUG_LINUX=(os.name=='posix')and True
+DEBUG_LINUX=(os.name=='posix')and False
+USE_UNRELIABLE_METHODS = False
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
@@ -72,11 +73,11 @@ def print_todos(f=sys.stderr):
     print("\t consider the info in the tags on the music files for better fuzzy matching", file=f)
     print("\t implement caching of file matches", file=f)
     print('\t verify how same songs from different albums/versions are handled', file=f)
-    print("\t Maybe try matching with different formats or names?", file=f)
     print("\t Compare audios directly?", file=f)
     print("\t replace dashes and such with whitespace for fuzzy matching?", file=f)
     print("\t query Shazam?", file=f)
     print("\t Deal with capslock, remove numbers longer than 4 or so digits", file=f)
+    print("\t implement an unreliable check that just compares stripped, whitespaceless, lowercase filename by checking if it contains the tags", file=f)
 
 def filter_playlists(subfolders):
     """
@@ -149,13 +150,13 @@ def generate_songlists(mdir=PLAYLISTS_PATH, outdir='./songlists'):
                 sfile.write("{artist} - {title} - {album}\n".format(artist=info.artist, title=info.title, album=info.album))
 
 
-def find_match(trackname, possible_names):
+def find_match(trackname, possible_names, cutoff=0.3):
     """
       Return None if no good match found, otherwise return the possible_names[i] that matched well.
     """
     # inspired by rhasselbaum's https://gist.github.com/rhasselbaum/e1cf714e21f00741826f
     # we're asking for exactly one match and set the cutoff quite high - i.e. the match must be good.
-    close_matches = difflib.get_close_matches(trackname, possible_names, n=1, cutoff=0.3)
+    close_matches = difflib.get_close_matches(trackname, possible_names, n=1, cutoff=cutoff)
     if close_matches:
         return close_matches[0]
     else:
@@ -230,11 +231,13 @@ def find_exact_tag_match(local_music_file_infos, song_info, tracker: MatchTracke
 
 def find_fuzzy_tag_match(local_music_file_infos, song_info, tracker: MatchTracker):
     possibilities = ["{}{}".format(mf_info.tag.title, mf_info.tag.artist) for mf_info in local_music_file_infos if mf_info.is_tag_set()]
-    found = find_match("{}{}".format(song_info.title, song_info.artist), possibilities)
+    found = find_match("{}{}".format(song_info.title, song_info.artist), possibilities, cutoff=0.4)
     if found is not None:
-        found_path = next(filter(
+        found_music_file_infos = list(filter(
                 lambda mfi: mfi.is_tag_set() and ("{}{}".format(mfi.tag.title, mfi.tag.artist) == found),
-                local_music_file_infos)).full_path
+                local_music_file_infos))
+        found_path = found_music_file_infos[0]
+        # but just because this matches does not yet mean it's valid. E.g. "Vitas - My Swan" matched "Starset - My Demons"...
         print("Fuzzy Tag Match for {title} by {artist} from Album {album} to path {tpath}".format(
                 title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=found_path
             ))
@@ -312,11 +315,6 @@ def main():
             if found_exact_match:
                 continue
 
-            # try fuzzy tag matching
-            found_fuzzy_tag_match = find_fuzzy_tag_match(local_music_file_infos, song_info, tracker)
-            if found_fuzzy_tag_match:
-                continue
-
             # try fuzzy filename matching in various orders
             fuzzy_match_techniques = [
                     "{artist}{title}{album}",
@@ -332,6 +330,12 @@ def main():
                     break
             if found_fuzzy_match:
                 continue # with next song
+
+            if USE_UNRELIABLE_METHODS:
+                # try fuzzy tag matching
+                found_fuzzy_tag_match = find_fuzzy_tag_match(local_music_file_infos, song_info, tracker)
+                if found_fuzzy_tag_match:
+                    continue
 
             # if we're still here, no match has been found for this song.
             tracker.unmatch(song_info)
