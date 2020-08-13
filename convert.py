@@ -337,17 +337,7 @@ def filepath_contains_info(local_music_file_infos, song_info, tracker):
         return False
 
 def folders_of_path(folderpath):
-    folders = []
-    path=folderpath
-    while True:
-        path, folder = os.path.split(path)
-        if folder != "":
-            folders.append(folder)
-        else:
-            if path!="":
-                folders.append(path)
-            break
-    return folders.reverse()
+    return os.path.normpath(folderpath).split(os.sep)
 
 def is_ignored(folder):
     path = os.path.normpath(folder)
@@ -366,7 +356,7 @@ def main():
         print("\tPlaylist: {}".format(playlistname))
 
     print("Indexing local music files...")
-    local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(MUSIC_PATH) for filpath in filpaths ]
+    local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(MUSIC_PATH) for filpath in filpaths if not is_ignored(dirpath) ]
     local_music_files=map(lambda x: x.get_plain_filename(), local_music_file_infos)
 
     print("Indexing local music file tags...")
