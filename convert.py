@@ -63,7 +63,8 @@ class Playlist:
     """
     name: str
     content: list = None
-    # Either fully qualified paths or a placeholder for later correction. Anything that is not a path MUST start with "PLACEHOLDER:"
+    # Either fully qualified paths or a placeholder for later correction. Anything that is not a path MUST start with PLACEHOLDER
+    PLACEHOLDER = "PLACEHOLDER:"
 
     def add(self, line: str):
         if self.content is None:
@@ -111,8 +112,8 @@ class MatchTracker:
         """
         self.num_songs_missing[playlist] = self.num_songs_missing.get(playlist, 0) + 1
 
-    def unmatch(self, songinfo):
-        self.match(songinfo, None, MatchSource.UNMATCHED, playlist=None)
+    def unmatch(self, songinfo, playlist: Playlist):
+        self.match("{}{}".format(Playlist.PLACEHOLDER, pformat(songinfo)), None, MatchSource.UNMATCHED, playlist=playlist)
         self.unmatched_songs.add(songinfo)
 
     def increment_search_counter(self, playlist_basename):
@@ -604,7 +605,7 @@ def main():
 
             if not match_found:
                 # if we're still here, no match has been found for this song.
-                tracker.unmatch(song_info)
+                tracker.unmatch(song_info, playlist)
                 tracker.unmatch_for_playlist(playlistname)
             else:
                 continue # not explicitly needed
