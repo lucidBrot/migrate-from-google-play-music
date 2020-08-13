@@ -36,6 +36,14 @@ MUSIC_PATH = os.path.normpath('N:\Files\Musik')
 if DEBUG_LINUX:
     MUSIC_PATH = os.path.normpath('Musik')
 
+# Path to where the export from GPM resides.
+# Files are assumed to be lower quality
+# Also add any other fallback paths here.
+GPM_FALLBACK_TRACK_PATH = [
+        os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Tracks'),
+        os.path.normpath('F:\PlayMusic'),
+        ]
+
 class MatchSource(Enum):
     EXACT_TAG_MATCH = 1
     FUZZY = 2
@@ -396,6 +404,8 @@ def main():
                     file_info.tag = FileTag(artist=(tag['artist'][0] if 'artist' in tag else ''), album=(tag['album'][0] if 'album' in tag else ''), title=(tag['title'][0] if 'title' in tag else ''))
             except mutagen.mp3.HeaderNotFoundError as err:
                 file_info.tag = None # happens. "can't sync to MPEG frame" is the ~800th check, so it's probably just not a music file.
+
+    print("Indexing fallback file tags") # since we expect exact matches on the tags
     
 
     # it would make sense to operate on the filenames instead of the full paths on one hand. 
