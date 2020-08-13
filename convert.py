@@ -237,6 +237,7 @@ class FileInfo:
                     newly_loaded_tag = True
             except mutagen.mp3.HeaderNotFoundError as err:
                 self.tag = None # happens. "can't sync to MPEG frame" is the ~800th check, so it's probably just not a music file.
+
         if newly_loaded_tag:
             # Need to transform "&quot;", "&amp;" and similar because locally this is stored correctly in the tags.
             self.tag.title = html.unescape(self.tag.title)
@@ -481,6 +482,15 @@ def main():
 
             # try a heuristic on the file path (full path, not just name)
             if filepath_contains_info(local_music_file_infos, song_info, tracker):
+                continue
+
+            # try again with the tags, but don't regard long numbers.
+            lmfi_stripped = []
+            for lmfi in local_music_file_infos:
+                title_stripped = re.sub('\d\d\d\d\d+', lmfi.tag.title)
+                new_tag = FileTag(artist=lmfi.tag.artist, album=lmfi.tag.artist, title=title_stripped)
+                mfi = FileInfo(filename=lmfi.filename, full_path=lmfi.full_path, tag=new_tag)
+            if tags_contain_info(lmfi_stripped, song_info, tracker):
                 continue
 
             # try things that are likely to guess wrongly
