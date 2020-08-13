@@ -83,6 +83,16 @@ class Playlist:
         else:
             return self.content
 
+    def update_placeholders(self, new_info):
+        if self.content is None:
+            self.content = []
+    
+        for i in range(len(self.content)):
+            if self.content[i].startswith(Playlist.PLACEHOLDER):
+                key = self.content[i][len(Playlist.PLACEHOLDER):]
+                self.content[i] = new_info.get(i, self.content[i])
+
+
 @dataclass
 class MatchTracker:
     match_counts : dict
@@ -509,16 +519,38 @@ def complete_playlists_interactively(playlists: list):
             if entry.startswith(Playlist.PLACEHOLDER):
                 user_specifiable_mappings[entry[len(Playlist.PLACEHOLDER):]] = infostring
     
-    with open(os.path.join(OUTPUT_PLAYLIST_DIR, "_missing_matches.json"), "w+", encoding="utf-8") as jsf:
-        # read previous content
-        try:
-            data = json.load(jsf)
-        except json.decoder.JSONDecodeError as e:
-            pass
-        # TODO: include that content
-        # write out.
-        json.dump(user_specifiable_mappings, jsf, indent=4)
-        
+    if len(user_specifiable_mappings) > 0:
+        need_more_input=True
+
+    while need_more_input:
+        with open(os.path.join(OUTPUT_PLAYLIST_DIR, "_missing_matches.json"), "r+", encoding="utf-8") as jsf:
+            # read previous content
+            try:
+                data = json.load(jsf)
+            except json.decoder.JSONDecodeError as e:
+                data = {}
+                pass
+
+            # include that content as specified by the user
+            print("Loading preexisting data...")
+            for key, value in data.items():
+                user_specifiable_mappings[key] = value
+
+            # do we still need user input after this?
+            need_more_input=False
+            for key, value in user_specifiable_mappings.items():
+                if value is None or value == "" or value == infostring:
+                    need_more_input = True
+
+            # write out.
+            if need_more_input:
+                json.dump(user_specifiable_mappings, jsf, indent=4)
+                print("Need more inputs in file _missing_matches.json!", file=sys.stderr)
+                input("Press ENTER when ready")
+
+    print("No more inputs needed by user!")
+    for playlist in playlists:
+        playlist.update_placeholders(user_specifiable_mappings)
 
     # stub
     return playlists
