@@ -87,11 +87,13 @@ class Playlist:
     def update_placeholders(self, new_info):
         if self.content is None:
             self.content = []
+
+        print("Updating placeholders for Playlist {}...".format(self.name))
     
         for i in range(len(self.content)):
             if self.content[i].startswith(Playlist.PLACEHOLDER):
                 key = self.content[i][len(Playlist.PLACEHOLDER):]
-                self.content[i] = new_info.get(i, self.content[i])
+                self.content[i] = new_info.get(key, self.content[i])
 
 
 @dataclass
@@ -573,7 +575,7 @@ def copy_files_over(playlists: list, targetdir=COPY_FALLBACKS_TO_PATH, musicpath
         Update playlists.
     """
     # stub
-    return
+    return playlists
 
 def relativate_playlists(playlists: list, relative_to=MUSIC_PATH):
     """
