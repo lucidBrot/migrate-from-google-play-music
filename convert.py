@@ -52,6 +52,7 @@ class MatchSource(Enum):
     FUZZY_TAG_MATCH = 4
     TAGS_CONTAIN = 5
     PATH_CONTAINS = 6
+    SUBSTRING_TAG_MATCH = 7
 
 @dataclass
 class MatchTracker:
@@ -60,12 +61,14 @@ class MatchTracker:
     playlist_searches : dict
     fuzzy_details : dict
     num_songs_missing : dict
+    subbed_songs : dict # for tracking substitutions, so that the user can verify their correctness.
 
     def __init__(self):
         self.match_counts = {}
         self.unmatched_songs = set()
         self.playlist_searches = {}
         self.fuzzy_details = {}
+        self.subbed_songs = {}
         self.num_songs_missing = {}
 
 
@@ -73,6 +76,8 @@ class MatchTracker:
         self.match_counts[match_source] = self.match_counts.get(match_source, 0) + 1
         if match_source == MatchSource.FUZZY and fuzzy_info is not None:
             self.fuzzy_details[fuzzy_info] = self.fuzzy_details.get(fuzzy_info, 0) + 1
+        if match_source == MatchSource.SUBSTRING_TAG_MATCH:
+            self.subbed_songs.add(songinfo)
 
     def unmatch_for_playlist(self, playlist):
         """
@@ -262,7 +267,7 @@ def find_exact_tag_match(local_music_file_infos, song_info, tracker: MatchTracke
             tag = music_file_info.tag
             if tag.set_parts_equal(artist=song_info.artist, title=song_info.title, album=song_info.album):
                 # The tags exactly match!
-                print("Exact Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
+                print("Exact Tag Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
                 tracker.match(song_info, music_file_info.full_path, MatchSource.EXACT_TAG_MATCH)
                 return True
             else:
@@ -272,6 +277,18 @@ def find_exact_tag_match(local_music_file_infos, song_info, tracker: MatchTracke
                 ##pprint(tag)
                 pass
     return False
+
+def find_substring_tag_match(fallback_music_file_infos, song_info, fallback_tracker):
+    for music_file_info in fallback_music_file_infos:
+        if music_file_info.is_tag_set():
+            tag = music_file_info.tag
+            if tag.title in song_info.title and tag.album in song_info.album and tag.artist in song_info.artist:
+                print("Substring Tag Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
+                tracker.match(song_info, music_file_info.full_path, MatchSource.SUBSTRING_TAG_MATCH)
+                return True
+
+    return False
+
 
 def find_fuzzy_tag_match(local_music_file_infos, song_info, tracker: MatchTracker):
     possibilities = ["{}{}".format(mf_info.tag.title, mf_info.tag.artist) for mf_info in local_music_file_infos if mf_info.is_tag_set()]
@@ -431,7 +448,6 @@ def main():
     print("Indexing fallback...") 
     fallback_music_file_infos = []
     fallback_music_files=[]
-    fallbackmaxtaglen=0
     for fallback in GPM_FALLBACK_TRACK_PATHS:
         fbpath = os.path.normpath(fallback)
 
@@ -442,8 +458,6 @@ def main():
         print("Indexing local fallback music tags for {} ...".format(fbpath))
         for file_info in fallback_music_file_infos:
             file_info.update_tag_from_fs()
-            if file_info.is_tag_set():
-                fallbackmaxtaglen=max(fallbackmaxtaglen, len(file_info.tag.title))
 
     # it would make sense to operate on the filenames instead of the full paths on one hand. 
     # but how to keep track of the actual paths?
@@ -499,19 +513,22 @@ def main():
             found_exact_gpm_match = find_exact_tag_match(fallback_music_file_infos, song_info, fallback_tracker)
             if found_exact_gpm_match:
                 continue
+            # But since gpm seems to cut off some parts of long titles, let's also check for substrings
+            if find_substring_tag_match(fallback_music_file_infos, song_info, fallback_tracker):
+                continue
 
             # if we're still here, no match has been found for this song.
             tracker.unmatch(song_info)
             tracker.unmatch_for_playlist(playlistname)
 
+    print("\nSubmatched Songs: \n{}\n#End List of Submatched Songs".format(pformat(fallback_tracker.subbed_songs)))
     print("\nUnmatched Songs: \n{}\n#End List of Unmatched Songs".format(pformat(tracker.unmatched_songs)))
     print("\nFuzzy Stats: \n{}".format(pformat(tracker.fuzzy_details)))
     print("\nFound Matches Statistics:\n{}".format(pformat(tracker.match_counts)))
     print("\nMatches from Fallback (unmatched total is handled by other tracker):\n{}".format(pformat(fallback_tracker.match_counts)))
     print("\nSearched Playlists Statistics:\n{}".format(pformat(tracker.playlist_searches)))
     print("\nIncompleteness of Playlists (Number of missing Songs):\n{}".format(pformat(tracker.num_songs_missing)))
-    print("\nMaximum Fallback Title Tag length encountered: {}".format(fallbackmaxtaglen))
-                
+
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
