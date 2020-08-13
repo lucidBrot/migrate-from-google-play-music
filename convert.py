@@ -20,6 +20,7 @@ from enum import Enum
 import mutagen
 from datetime import datetime
 import html
+import json
 
 DEBUG_LINUX=(os.name=='posix')and False
 USE_UNRELIABLE_METHODS = False
@@ -500,6 +501,24 @@ def complete_playlists_interactively(playlists: list):
     """
         Asks user for inputs for the missing paths and returns an updated list.
     """
+    user_specifiable_mappings = {}
+    infostring="SPECIFY_PATH_HERE"
+    for playlist in playlists:
+        plcontent = playlist.get_content()
+        for entry in plcontent:
+            if entry.startswith(Playlist.PLACEHOLDER):
+                user_specifiable_mappings[entry[len(Playlist.PLACEHOLDER):]] = infostring
+    
+    with open(os.path.join(OUTPUT_PLAYLIST_DIR, "_missing_matches.json"), "w+", encoding="utf-8") as jsf:
+        # read previous content
+        try:
+            data = json.load(jsf)
+        except json.decoder.JSONDecodeError as e:
+            pass
+        # TODO: include that content
+        # write out.
+        json.dump(user_specifiable_mappings, jsf, indent=4)
+        
 
     # stub
     return playlists
