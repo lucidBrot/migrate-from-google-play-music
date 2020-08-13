@@ -24,6 +24,7 @@ import html
 DEBUG_LINUX=(os.name=='posix')and False
 USE_UNRELIABLE_METHODS = False
 IGNORE_MUSIC_FOLDERS=['@eaDir']
+HANDLE_THUMBS_UP=True
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
@@ -94,7 +95,6 @@ class MatchTracker:
 
 def print_todos(f=sys.stderr):
     print("\n--- TODOS ---", file=f)
-    print("\t handle the Thumbs Up playlist.", file=f)
     print("\t check for surprising cases with more than two rows in a song csv", file=f)
     print("\t implement caching of file matches", file=f)
     print('\t verify how same songs from different albums/versions are handled', file=f)
@@ -114,7 +114,8 @@ def filter_playlists(subfolders):
         if not os.path.isdir(os.path.join(folder, 'Tracks')):
             valid=False
         if not valid:
-            print("\tInvalid: {}".format(folder), file=sys.stderr)
+            if os.path.split(folder)[1] != "Thumbs up":
+                print("\tInvalid: {}".format(folder), file=sys.stderr)
         if valid:
             yield(folder)
 
@@ -137,12 +138,12 @@ def strip_title(title):
     t = re.sub('.flac', '', t)
     return t
 
-def read_gpm_playlist(playlistdir):
+def read_gpm_playlist(playlistdir, trackdir='Tracks'):
     """
       Returns a list of song names contained in a GPM Takeout Playlist
     """
     song_infos_unsorted = []
-    tracks_path = os.path.join(playlistdir, 'Tracks')
+    tracks_path = os.path.join(playlistdir, trackdir)
     # Expected contents of that directory is one file per song, 
     # each file csv-formatted and containing something like this:
     # 
@@ -170,8 +171,8 @@ def read_gpm_playlist(playlistdir):
     song_infos_sorted = sorted(song_infos_unsorted, key=lambda x: x[1])
     return [song_tuple[0] for song_tuple in song_infos_sorted]
 
-def generate_songlists(mdir=PLAYLISTS_PATH, outdir='./songlists'):
-    subfolders = [ f.path for f in os.scandir(PLAYLISTS_PATH) if f.is_dir() ]
+def generate_songlists(mdir=PLAYLISTS_PATH, outdir='./songlists', handle_thumbs_up=HANDLE_THUMBS_UP):
+    subfolders = [ f.path for f in os.scandir(mdir) if f.is_dir() ]
     playlists = list(filter_playlists(subfolders))
     os.makedirs(os.path.normpath(outdir), exist_ok=True)
     for playlistpath in playlists:
@@ -181,6 +182,15 @@ def generate_songlists(mdir=PLAYLISTS_PATH, outdir='./songlists'):
         with open("{}.txt".format(playlistpath), 'w+', encoding="utf-8") as sfile:
             for info in song_info_list_sorted:
                 sfile.write("{artist} - {title} - {album}\n".format(artist=info.artist, title=info.title, album=info.album))
+    # now handle the Thumbs up playlist
+    if handle_thumbs_up:
+        sils = read_gpm_playlist(mdir, trackdir='Thumbs up')
+        playlistname='Thumbs up'
+        playlistpath = os.path.join(outdir, playlistname)
+        with open("{}.txt".format(playlistpath), 'w+', encoding="utf-8") as sfile:
+            for info in sils:
+                sfile.write("{artist} - {title} - {album}\n".format(artist=info.artist, title=info.title, album=info.album))
+
 
 
 def find_match(trackname, possible_names, cutoff=0.3):
@@ -475,10 +485,18 @@ def main():
     # but how to keep track of the actual paths?
 
     print("Accumulating Contents...")
+    # hackaround for Thumbs up Playlist: add it and handle it separately
+    THUMBSUPHACK="thumbsuphack1234542323232321231233333$2"
+    playlists.append(THUMBSUPHACK)
     for playlistpath in playlists:
-        playlistname = os.path.basename(playlistpath)
-        print("Accumulating Contents for Playlist {}".format(playlistname))
-        song_info_list_sorted = read_gpm_playlist(playlistpath)
+        if playlistpath != THUMBSUPHACK:
+            playlistname = os.path.basename(playlistpath)
+            print("Accumulating Contents for Playlist {}".format(playlistname))
+            song_info_list_sorted = read_gpm_playlist(playlistpath)
+        else:
+            playlistname = "Thumbs up"
+            print("Accumulating Contents for Playlist {}".format(playlistname))
+            song_info_list_sorted = read_gpm_playlist(PLAYLISTS_PATH, trackdir="Thumbs up")
         song_path_list = []
         for song_info in song_info_list_sorted:
             # count number of playlist searches for debugging
