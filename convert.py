@@ -271,10 +271,10 @@ def x_fuzzily_contains_y(x:str, y:str):
         return False
     if x is None: 
         return False
-    xx = x.lower()
+    xx = x.lower().replace('&amp;', '&').replace('&#39;',"'")
     # split on non-word characters of any amount, or underscore, or dash (included in non-word characters)
     splitmagic='[\W_]+'
-    yys = [ item for item in re.split(splitmagic,y.lower()) if item != '' ]
+    yys = [ item for item in re.split(splitmagic,y.lower().replace('&amp;', '&').replace('&#39;', "'")) if item != '' ]
     if all([yy in xx for yy in yys]):
         return True
     else:
