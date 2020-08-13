@@ -290,8 +290,8 @@ def tags_contain_info(local_music_files, song_info, tracker):
             # only check the options that are set. If no tags are set, we ignore the file. The title is required. But artist and album not.
             good=False
             if x_fuzzily_contains_y(x=mfi.tag.title, y=song_info.title):
-                if (not mfi.tag.artist) or x_fuzzily_contains_y(x=mfi.tag.artist, y=song_info.artist):
-                    if (not mfi.tag.album) or x_fuzzily_contains_y(x=mfi.tag.album, y=song_info.album):
+                if (not mfi.tag.artist) or (not song_info.artist) or x_fuzzily_contains_y(x=mfi.tag.artist, y=song_info.artist):
+                    if (not mfi.tag.album) or (not song_info.artist) or x_fuzzily_contains_y(x=mfi.tag.album, y=song_info.album):
                         good=True
             if good:
                 found_mfi_options.append(mfi)
