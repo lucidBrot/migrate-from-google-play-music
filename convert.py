@@ -71,6 +71,9 @@ class Playlist:
         if self.content is None:
             self.content = []
 
+        if line is None:
+            raise ValueError("Playlist line may never be None.")
+
         self.content.append(line)
 
     def get_content(self):
@@ -114,7 +117,8 @@ class MatchTracker:
         self.num_songs_missing[playlist] = self.num_songs_missing.get(playlist, 0) + 1
 
     def unmatch(self, songinfo, playlist: Playlist):
-        self.match("{}{}".format(Playlist.PLACEHOLDER, pformat(songinfo)), None, MatchSource.UNMATCHED, playlist=playlist)
+
+        self.match(songinfo, "{}{}".format(Playlist.PLACEHOLDER, pformat(songinfo)), MatchSource.UNMATCHED, playlist=playlist)
         self.unmatched_songs.add(songinfo)
 
     def increment_search_counter(self, playlist_basename):
@@ -129,6 +133,7 @@ def print_todos(f=sys.stderr):
     print("\t query Shazam?", file=f)
     print("\t copy fallback files to target?", file=f)
     print("\t Ask user for missing paths!", file=f)
+    print("\t Relative Paths!", file=f)
 
 def filter_playlists(subfolders):
     """
@@ -481,7 +486,7 @@ def save_playlist_files(playlists: list, outdir=OUTPUT_PLAYLIST_DIR):
     """
     os.makedirs(os.path.normpath(outdir), exist_ok=True)
     for playlist in playlists:
-        pfile = os.path.join(outdir, playlist.name)
+        pfile = os.path.join(outdir, "{}.txt".format(playlist.name))
         with open(pfile, "w+", encoding="utf-8") as outfile:
             for line in playlist.get_content():
                 outfile.write(line)
