@@ -127,6 +127,15 @@ class SongInfo:
     artist: str
     liked: bool
     album: str
+    title_stripped: str
+
+def strip_title(title):
+    if title is None:
+        return ""
+    t = re.sub('\d\d\d\d\d+', '', title)
+    t = re.sub('.mp3', '', t)
+    t = re.sub('.flac', '', t)
+    return t
 
 def read_gpm_playlist(playlistdir):
     """
@@ -151,7 +160,8 @@ def read_gpm_playlist(playlistdir):
                         # skip headline
                         continue
                     print("Reading GPM  {} by {}.".format(title, artist))
-                    song_info = SongInfo(title= title, album= album, artist= artist, liked= (rating == '5'))
+                    song_info = SongInfo(title= title, album= album, artist= artist, liked= (rating == '5'),
+                            title_stripped=strip_title(title))
                     song_infos_unsorted.append((song_info, playlist_index))
         except UnicodeEncodeError as e:
             print("INFO: Skipping file {} due to Unicode Reading Error.".format(song_csv))
@@ -474,50 +484,73 @@ def main():
             # count number of playlist searches for debugging
             tracker.increment_search_counter(playlistname)
 
-            # try exact tag matching - for MP3 files only
-            found_exact_match = find_exact_tag_match(local_music_file_infos, song_info, tracker)
-            if found_exact_match:
-                continue
+            # try once normally, and if nothing works try again with the stripped title
+            for hack_one in range(2):
+                # hack_one: temporarily use stripped title as normal title
+                hack_one_tmp = None
+                if (hack_one == 1):
+                    hack_one_tmp = song_info
+                    song_info = SongInfo(
+                            title=song_info.title_stripped,
+                            artist=song_info.artist,
+                            album=song_info.album,
+                            title_stripped=song_info.title,
+                            liked=song_info.liked,
+                            )
+                    # restore at the end of loop iteration
 
-            # try fuzzy filename matching in various orders
-            fuzzy_match_techniques = [
-                    "{artist}{title}{album}",
-                    "{artist}{title}",
-                    "{artist}{album}{title}",
-                    "{title}",
-                    "{title} - {artist}",
-                    ]
-            for tec in fuzzy_match_techniques:
-                # if found, break and continue with next song
-                found_fuzzy_match = find_fuzzy_match(local_music_files, song_info, tec, tracker)
-                if found_fuzzy_match:
-                    break
-            if found_fuzzy_match:
-                continue # with next song
-
-            # try a simple heuristic of whether the tags contain the relevant title and artist
-            if tags_contain_info(local_music_file_infos, song_info, tracker):
-                continue
-
-            # try a heuristic on the file path (full path, not just name)
-            if filepath_contains_info(local_music_file_infos, song_info, tracker):
-                continue
-
-            # try things that are likely to guess wrongly
-            if USE_UNRELIABLE_METHODS:
-                # try fuzzy tag matching
-                found_fuzzy_tag_match = find_fuzzy_tag_match(local_music_file_infos, song_info, tracker)
-                if found_fuzzy_tag_match:
+                # try exact tag matching - for MP3 files only
+                found_exact_match = find_exact_tag_match(local_music_file_infos, song_info, tracker)
+                if found_exact_match:
                     continue
 
-            # Not found... let's use the fallback GPM export (if set)
-            # Since the Tags should be correct there, we only check for exact matches. But technically we could also run the other checks.
-            found_exact_gpm_match = find_exact_tag_match(fallback_music_file_infos, song_info, fallback_tracker)
-            if found_exact_gpm_match:
-                continue
-            # But since gpm seems to cut off some parts of long titles, let's also check for substrings
-            if find_substring_tag_match(fallback_music_file_infos, song_info, fallback_tracker):
-                continue
+                # try fuzzy filename matching in various orders
+                fuzzy_match_techniques = [
+                        "{artist}{title}{album}",
+                        "{artist}{title}",
+                        "{artist}{album}{title}",
+                        "{title}",
+                        "{title} - {artist}",
+                        ]
+                for tec in fuzzy_match_techniques:
+                    # if found, break and continue with next song
+                    found_fuzzy_match = find_fuzzy_match(local_music_files, song_info, tec, tracker)
+                    if found_fuzzy_match:
+                        break
+                if found_fuzzy_match:
+                    continue # with next song
+
+                # try a simple heuristic of whether the tags contain the relevant title and artist
+                if tags_contain_info(local_music_file_infos, song_info, tracker):
+                    continue
+
+                # try a heuristic on the file path (full path, not just name)
+                if filepath_contains_info(local_music_file_infos, song_info, tracker):
+                    continue
+
+                # try things that are likely to guess wrongly
+                if USE_UNRELIABLE_METHODS:
+                    # try fuzzy tag matching
+                    found_fuzzy_tag_match = find_fuzzy_tag_match(local_music_file_infos, song_info, tracker)
+                    if found_fuzzy_tag_match:
+                        continue
+
+                # Not found... let's use the fallback GPM export (if set)
+                # Since the Tags should be correct there, we only check for exact matches. But technically we could also run the other checks.
+                found_exact_gpm_match = find_exact_tag_match(fallback_music_file_infos, song_info, fallback_tracker)
+                if found_exact_gpm_match:
+                    continue
+                # But since gpm seems to cut off some parts of long titles, let's also check for substrings
+                try:
+                    if find_substring_tag_match(fallback_music_file_infos, song_info, fallback_tracker):
+                        continue
+                except TypeError as e: # try-catch for debug purposes
+                    print(pformat(song_info), file=sys.stderr)
+                    raise e
+
+                if (hack_one == 1):
+                    # Not sure if this restoration is ever relevant, but why not do it.
+                    song_info = hack_one_tmp
 
             # if we're still here, no match has been found for this song.
             tracker.unmatch(song_info)
