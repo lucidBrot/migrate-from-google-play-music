@@ -193,6 +193,11 @@ def read_gpm_playlist(playlistdir, trackdir='Tracks'):
                     if (title.strip() == 'Title') and (artist.strip() == 'Artist') and (album.strip() == 'Album'):
                         # skip headline
                         continue
+                    # clean up google's htmlencoding mess
+                    title = html.unescape(title)
+                    album = html.unescape(album)
+                    artist = html.unescape(artist)
+
                     print("Reading GPM  {} by {}.".format(title, artist))
                     song_info = SongInfo(title= title, album= album, artist= artist, liked= (rating == '5'),
                             title_stripped=strip_title(title))
