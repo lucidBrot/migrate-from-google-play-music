@@ -26,7 +26,6 @@ DEBUG_LINUX=(os.name=='posix')and False
 USE_UNRELIABLE_METHODS = False
 IGNORE_MUSIC_FOLDERS=['@eaDir']
 HANDLE_THUMBS_UP=True
-COPY_FALLBACK_GPM_MUSIC_TO_MUSIC_PATH=True
 OUTPUT_PLAYLIST_DIR=os.path.normpath('output_playlists')
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
@@ -40,6 +39,8 @@ if DEBUG_LINUX:
 MUSIC_PATH = os.path.normpath('N:\Files\Musik')
 if DEBUG_LINUX:
     MUSIC_PATH = os.path.normpath('Musik')
+COPY_FALLBACK_GPM_MUSIC=True
+COPY_FALLBACKS_TO_PATH=os.path.normpath(os.path.join(MUSIC_PATH, "2020", "gpm-migration"))
 
 # Path to where the export from GPM resides.
 # Files are assumed to be lower quality
@@ -564,8 +565,15 @@ def complete_playlists_interactively(playlists: list):
     for playlist in playlists:
         playlist.update_placeholders(user_specifiable_mappings)
 
-    # stub
     return playlists
+
+def copy_files_over(playlists: list, targetdir=COPY_FALLBACKS_TO_PATH, musicpath=MUSIC_PATH):
+    """
+        Copy files to path unless they are located in the musicpath already.
+        Update playlists.
+    """
+    # stub
+    return
 
 def relativate_playlists(playlists: list, relative_to=MUSIC_PATH):
     """
@@ -720,6 +728,8 @@ def main():
     print("\nIncompleteness of Playlists (Number of missing Songs):\n{}".format(pformat(tracker.num_songs_missing)))
 
     output_playlists=complete_playlists_interactively(output_playlists)
+    if COPY_FALLBACK_GPM_MUSIC:
+        output_playlists=copy_files_over(output_playlists)
     output_playlists=relativate_playlists(output_playlists)
     save_playlist_files(output_playlists)
 
