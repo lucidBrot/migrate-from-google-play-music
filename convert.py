@@ -489,7 +489,22 @@ def save_playlist_files(playlists: list, outdir=OUTPUT_PLAYLIST_DIR):
         pfile = os.path.join(outdir, "{}.txt".format(playlist.name))
         with open(pfile, "w+", encoding="utf-8") as outfile:
             for line in playlist.get_content():
-                outfile.write(line)
+                outfile.write(line+"\n")
+
+def complete_playlists_interactively(playlists: list):
+    """
+        Asks user for inputs for the missing paths and returns an updated list.
+    """
+
+    # stub
+    return playlists
+
+def relativate_playlists(playlists: list, relative_to=MUSIC_PATH):
+    """
+       Modify Playlists to use relative paths 
+    """
+    # stub
+    return playlists
 
 def main():
     tracker = MatchTracker()
@@ -636,6 +651,8 @@ def main():
     print("\nSearched Playlists Statistics:\n{}".format(pformat(tracker.playlist_searches)))
     print("\nIncompleteness of Playlists (Number of missing Songs):\n{}".format(pformat(tracker.num_songs_missing)))
 
+    output_playlists=complete_playlists_interactively(output_playlists)
+    output_playlists=relativate_playlists(output_playlists)
     save_playlist_files(output_playlists)
 
 if __name__ == '__main__':
