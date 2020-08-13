@@ -39,6 +39,7 @@ class MatchSource(Enum):
     FUZZY = 2
     UNMATCHED = 3
     FUZZY_TAG_MATCH = 4
+    TAGS_CONTAIN = 5
 
 @dataclass
 class MatchTracker:
@@ -263,6 +264,50 @@ def find_fuzzy_match(local_music_files, song_info, searchterm: str, tracker: Mat
         tracker.match(song_info, song_path, MatchSource.FUZZY, fuzzy_info = searchterm)
         return True
 
+def x_fuzzily_contains_y(x:str, y:str):
+    """
+        checks if all parts of x are somewhat in y
+    """
+    if y is None:
+        return False
+    if x is None: 
+        return False
+    xx = x.lower()
+    # split on non-word characters of any amount, or underscore, or dash (included in non-word characters)
+    yys = [ item for item in re.split('[\W_]+',y.lower()) if item != '' ]
+    if all([yy in xx for yy in yys]):
+        return True
+    else:
+        return False
+
+def tags_contain_info(local_music_files, song_info, tracker):
+    """
+        Return True if a match found
+    """
+    found_mfi_options = []
+    for mfi in local_music_files:
+        if mfi.is_tag_set():
+            # only check the options that are set. If no tags are set, we ignore the file. The title is required. But artist and album not.
+            good=False
+            if x_fuzzily_contains_y(x=mfi.tag.title, y=song_info.title):
+                if (not mfi.tag.artist) or x_fuzzily_contains_y(x=mfi.tag.artist, y=song_info.artist):
+                    if (not mfi.tag.album) or x_fuzzily_contains_y(x=mfi.tag.album, y=song_info.album):
+                        good=True
+            if good:
+                found_mfi_options.append(mfi)
+    num_found =  len(found_mfi_options)
+    if num_found == 1:
+        print("TCInfo found match for {title} by {artist} from Album {album} to path {tpath}".format(
+            title=song_info.title, artist=song_info.artist, album=song_info.album, tpath=found_mfi_options[0].full_path
+            ))
+        tracker.match(song_info, found_mfi_options[0].full_path, MatchSource.TAGS_CONTAIN)
+        return True
+    else:
+        print("TCI found {n} options for {title} by {artist} from Album {album}:\n\t{options}".format(
+            n=num_found, title=song_info.title, artist=song_info.artist, album=song_info.album,
+            options = pformat(list(map(lambda x: x.full_path, found_mfi_options)))
+            ))
+
 def main():
     tracker = MatchTracker()
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
@@ -331,6 +376,11 @@ def main():
             if found_fuzzy_match:
                 continue # with next song
 
+            # try a simple heuristic of whether the tags contain the relevant title and artist
+            if tags_contain_info(local_music_file_infos, song_info, tracker):
+                continue
+
+            # try things that are likely to guess wrongly
             if USE_UNRELIABLE_METHODS:
                 # try fuzzy tag matching
                 found_fuzzy_tag_match = find_fuzzy_tag_match(local_music_file_infos, song_info, tracker)
