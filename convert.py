@@ -513,6 +513,7 @@ def complete_playlists_interactively(playlists: list):
     """
     user_specifiable_mappings = {}
     infostring="SPECIFY_PATH_HERE"
+    jsonfile="_missing_matches.json"
     for playlist in playlists:
         plcontent = playlist.get_content()
         for entry in plcontent:
@@ -523,30 +524,41 @@ def complete_playlists_interactively(playlists: list):
         need_more_input=True
 
     while need_more_input:
-        with open(os.path.join(OUTPUT_PLAYLIST_DIR, "_missing_matches.json"), "r+", encoding="utf-8") as jsf:
-            # read previous content
-            try:
-                data = json.load(jsf)
-            except json.decoder.JSONDecodeError as e:
-                data = {}
-                pass
+        print("looping because need more input...")
+        try:
+            with open(os.path.join(OUTPUT_PLAYLIST_DIR, jsonfile), "r", encoding="utf-8") as jsf:
+                # read previous content
+                try:
+                    data = json.load(jsf)
+                except json.decoder.JSONDecodeError as e:
+                    data = {}
+                    pass
+                #print("JSON data read: \n{}\n".format(pformat(data)))
+        except FileNotFoundError:
+            #print("JSON file did not yet exist")
+            data = {}
 
-            # include that content as specified by the user
-            print("Loading preexisting data...")
-            for key, value in data.items():
-                user_specifiable_mappings[key] = value
 
-            # do we still need user input after this?
-            need_more_input=False
-            for key, value in user_specifiable_mappings.items():
-                if value is None or value == "" or value == infostring:
-                    need_more_input = True
+        # include that content as specified by the user
+        print("Loading preexisting data...")
+        for key, value in data.items():
+            user_specifiable_mappings[key] = value
 
-            # write out.
-            if need_more_input:
-                json.dump(user_specifiable_mappings, jsf, indent=4)
+        # do we still need user input after this?
+        need_more_input=False
+        for key, value in user_specifiable_mappings.items():
+            if value is None or value == "" or value == infostring:
+                print("Need info for {}".format(key))
+                need_more_input = True
+
+        if need_more_input:
+            with open(os.path.join(OUTPUT_PLAYLIST_DIR, jsonfile), "w", encoding="utf-8") as jsf:
+                # write out.
+                data_to_write=json.dumps(user_specifiable_mappings, indent=4)
+                #print("JSON DATA TO WRITE: \n{}\n".format(data_to_write))
+                jsf.write(data_to_write)
                 print("Need more inputs in file _missing_matches.json!", file=sys.stderr)
-                input("Press ENTER when ready")
+            input("Press ENTER when ready")
 
     print("No more inputs needed by user!")
     for playlist in playlists:
