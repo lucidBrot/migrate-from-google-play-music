@@ -1,0 +1,9 @@
+name: gpm-export
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - pytest
+  - mutagen
+prefix: /home/generic/miniconda3/envs/gpm-export
+
