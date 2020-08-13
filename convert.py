@@ -26,6 +26,7 @@ USE_UNRELIABLE_METHODS = False
 IGNORE_MUSIC_FOLDERS=['@eaDir']
 HANDLE_THUMBS_UP=True
 COPY_FALLBACK_GPM_MUSIC_TO_MUSIC_PATH=True
+OUTPUT_PLAYLIST_DIR=os.path.normpath('output_playlists')
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
@@ -127,6 +128,7 @@ def print_todos(f=sys.stderr):
     print("\t Compare audios directly?", file=f)
     print("\t query Shazam?", file=f)
     print("\t copy fallback files to target?", file=f)
+    print("\t Ask user for missing paths!", file=f)
 
 def filter_playlists(subfolders):
     """
@@ -473,6 +475,17 @@ def is_ignored(folder):
     folders= folders_of_path(path)
     return any([item in folders for item in IGNORE_MUSIC_FOLDERS])
 
+def save_playlist_files(playlists: list, outdir=OUTPUT_PLAYLIST_DIR):
+    """
+        Takes a List<Playlist> and writes it out to files.
+    """
+    os.makedirs(os.path.normpath(outdir), exist_ok=True)
+    for playlist in playlists:
+        pfile = os.path.join(outdir, playlist.name)
+        with open(pfile, "w+", encoding="utf-8") as outfile:
+            for line in playlist.get_content():
+                outfile.write(line)
+
 def main():
     tracker = MatchTracker()
     fallback_tracker = MatchTracker()
@@ -618,6 +631,7 @@ def main():
     print("\nSearched Playlists Statistics:\n{}".format(pformat(tracker.playlist_searches)))
     print("\nIncompleteness of Playlists (Number of missing Songs):\n{}".format(pformat(tracker.num_songs_missing)))
 
+    save_playlist_files(output_playlists)
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
