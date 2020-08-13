@@ -37,6 +37,7 @@ class MatchSource(Enum):
     EXACT_TAG_MATCH = 1
     FUZZY = 2
     UNMATCHED = 3
+    FUZZY_TAG_MATCH = 4
 
 @dataclass
 class MatchTracker:
@@ -227,6 +228,20 @@ def find_exact_tag_match(local_music_file_infos, song_info, tracker: MatchTracke
                 pass
     return False
 
+def find_fuzzy_tag_match(local_music_file_infos, song_info, tracker: MatchTracker):
+    possibilities = ["{}{}".format(mf_info.tag.title, mf_info.tag.artist) for mf_info in local_music_file_infos if mf_info.is_tag_set()]
+    found = find_match("{}{}".format(song_info.title, song_info.artist), possibilities)
+    if found is not None:
+        found_path = next(filter(
+                lambda mfi: mfi.is_tag_set() and ("{}{}".format(mfi.tag.title, mfi.tag.artist) == found),
+                local_music_file_infos)).full_path
+        print("Fuzzy Tag Match for {title} by {artist} from Album {album} to path {tpath}".format(
+                title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=found_path
+            ))
+        tracker.match(song_info, found_path, MatchSource.FUZZY_TAG_MATCH)
+        return True
+    return False
+
 def find_fuzzy_match(local_music_files, song_info, searchterm: str, tracker: MatchTracker):
     """
         Return True if found, false otherwise. If found, calls match.
@@ -291,9 +306,15 @@ def main():
         for song_info in song_info_list_sorted:
             # count number of playlist searches for debugging
             tracker.increment_search_counter(playlistname)
+
             # try exact tag matching - for MP3 files only
             found_exact_match = find_exact_tag_match(local_music_file_infos, song_info, tracker)
             if found_exact_match:
+                continue
+
+            # try fuzzy tag matching
+            found_fuzzy_tag_match = find_fuzzy_tag_match(local_music_file_infos, song_info, tracker)
+            if found_fuzzy_tag_match:
                 continue
 
             # try fuzzy filename matching in various orders
@@ -302,6 +323,7 @@ def main():
                     "{artist}{title}",
                     "{artist}{album}{title}",
                     "{title}",
+                    "{title} - {artist}",
                     ]
             for tec in fuzzy_match_techniques:
                 # if found, break and continue with next song
