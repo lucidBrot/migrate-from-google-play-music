@@ -61,14 +61,14 @@ class MatchTracker:
     playlist_searches : dict
     fuzzy_details : dict
     num_songs_missing : dict
-    subbed_songs : dict # for tracking substitutions, so that the user can verify their correctness.
+    subbed_songs : set # for tracking substitutions, so that the user can verify their correctness.
 
     def __init__(self):
         self.match_counts = {}
         self.unmatched_songs = set()
         self.playlist_searches = {}
         self.fuzzy_details = {}
-        self.subbed_songs = {}
+        self.subbed_songs = set()
         self.num_songs_missing = {}
 
 
@@ -282,10 +282,12 @@ def find_substring_tag_match(fallback_music_file_infos, song_info, fallback_trac
     for music_file_info in fallback_music_file_infos:
         if music_file_info.is_tag_set():
             tag = music_file_info.tag
-            if tag.title in song_info.title and tag.album in song_info.album and tag.artist in song_info.artist:
-                print("Substring Tag Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
-                tracker.match(song_info, music_file_info.full_path, MatchSource.SUBSTRING_TAG_MATCH)
-                return True
+            if tag.title in song_info.title:
+                if (not tag.album) or (not song_info.album) or tag.album in song_info.album:
+                    if (not tag.artist) or (not song_info.artist) or tag.artist in song_info.artist:
+                        print("Substring Tag Match for {title} by {artist} from Album {album} at path {tpath}".format(title=song_info.title, album=song_info.album, artist=song_info.artist, tpath=music_file_info.full_path))
+                        fallback_tracker.match(song_info, music_file_info.full_path, MatchSource.SUBSTRING_TAG_MATCH)
+                        return True
 
     return False
 
