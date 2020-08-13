@@ -336,12 +336,30 @@ def filepath_contains_info(local_music_file_infos, song_info, tracker):
                 ))
         return False
 
+def folders_of_path(folderpath):
+    folders = []
+    path=folderpath
+    while True:
+        path, folder = os.path.split(path)
+        if folder != "":
+            folders.append(folder)
+        else:
+            if path!="":
+                folders.append(path)
+            break
+    return folders.reverse()
+
+def is_ignored(folder):
+    path = os.path.normpath(folder)
+    folders= folders_of_path(path)
+    return any([item in folders for item in IGNORE_MUSIC_FOLDERS])
+
 def main():
     tracker = MatchTracker()
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
     
     print("Collecting playlist directories...\n")
-    subfolders = [ f.path for f in os.scandir(PLAYLISTS_PATH) if f.is_dir() and not (os.path.basename(f.path) in IGNORE_MUSIC_FOLDERS) ]
+    subfolders = [ f.path for f in os.scandir(PLAYLISTS_PATH) if f.is_dir() and not is_ignored(f.path) ]
     playlists = list(filter_playlists(subfolders))
     for playlistpath in playlists:
         playlistname = os.path.basename(playlistpath)
