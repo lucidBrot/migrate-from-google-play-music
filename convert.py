@@ -21,6 +21,7 @@ from datetime import datetime
 
 DEBUG_LINUX=(os.name=='posix')and False
 USE_UNRELIABLE_METHODS = False
+IGNORE_MUSIC_FOLDERS=['@eaDir']
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
@@ -340,7 +341,7 @@ def main():
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
     
     print("Collecting playlist directories...\n")
-    subfolders = [ f.path for f in os.scandir(PLAYLISTS_PATH) if f.is_dir() ]
+    subfolders = [ f.path for f in os.scandir(PLAYLISTS_PATH) if f.is_dir() and not (os.path.basename(f.path) in IGNORE_MUSIC_FOLDERS) ]
     playlists = list(filter_playlists(subfolders))
     for playlistpath in playlists:
         playlistname = os.path.basename(playlistpath)
