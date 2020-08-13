@@ -27,6 +27,7 @@ USE_UNRELIABLE_METHODS = False
 IGNORE_MUSIC_FOLDERS=['@eaDir']
 HANDLE_THUMBS_UP=True
 OUTPUT_PLAYLIST_DIR=os.path.normpath('output_playlists')
+MAKE_PLAYLISTS_RELATIVE_TO_OUTPUT_PLAYLIST_DIR=True
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
@@ -505,7 +506,7 @@ def save_playlist_files(playlists: list, outdir=OUTPUT_PLAYLIST_DIR):
     """
     os.makedirs(os.path.normpath(outdir), exist_ok=True)
     for playlist in playlists:
-        pfile = os.path.join(outdir, "{}.txt".format(playlist.name))
+        pfile = os.path.join(outdir, "{}.m3u".format(playlist.name))
         with open(pfile, "w+", encoding="utf-8") as outfile:
             for line in playlist.get_content():
                 outfile.write(line+"\n")
@@ -577,7 +578,7 @@ def copy_files_over(playlists: list, targetdir=COPY_FALLBACKS_TO_PATH, musicpath
     # stub
     return playlists
 
-def relativate_playlists(playlists: list, relative_to=MUSIC_PATH):
+def relativate_playlists(playlists: list, relative_to=OUTPUT_PLAYLIST_DIR):
     """
        Modify Playlists to use relative paths 
     """
@@ -732,7 +733,8 @@ def main():
     output_playlists=complete_playlists_interactively(output_playlists)
     if COPY_FALLBACK_GPM_MUSIC:
         output_playlists=copy_files_over(output_playlists)
-    output_playlists=relativate_playlists(output_playlists)
+    if MAKE_PLAYLISTS_RELATIVE_TO_OUTPUT_PLAYLIST_DIR:
+        output_playlists=relativate_playlists(output_playlists, relative_to=OUTPUT_PLAYLIST_DIR)
     save_playlist_files(output_playlists)
 
 if __name__ == '__main__':
