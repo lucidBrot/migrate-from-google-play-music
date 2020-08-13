@@ -431,6 +431,7 @@ def main():
     print("Indexing fallback...") 
     fallback_music_file_infos = []
     fallback_music_files=[]
+    fallbackmaxtaglen=0
     for fallback in GPM_FALLBACK_TRACK_PATHS:
         fbpath = os.path.normpath(fallback)
 
@@ -440,7 +441,9 @@ def main():
 
         print("Indexing local fallback music tags for {} ...".format(fbpath))
         for file_info in fallback_music_file_infos:
-            file_info.update_tag_from_fs() 
+            file_info.update_tag_from_fs()
+            if file_info.is_tag_set():
+                fallbackmaxtaglen=max(fallbackmaxtaglen, len(file_info.tag.title))
 
     # it would make sense to operate on the filenames instead of the full paths on one hand. 
     # but how to keep track of the actual paths?
@@ -484,15 +487,6 @@ def main():
             if filepath_contains_info(local_music_file_infos, song_info, tracker):
                 continue
 
-            # try again with the tags, but don't regard long numbers.
-            lmfi_stripped = []
-            for lmfi in local_music_file_infos:
-                title_stripped = re.sub('\d\d\d\d\d+', lmfi.tag.title)
-                new_tag = FileTag(artist=lmfi.tag.artist, album=lmfi.tag.artist, title=title_stripped)
-                mfi = FileInfo(filename=lmfi.filename, full_path=lmfi.full_path, tag=new_tag)
-            if tags_contain_info(lmfi_stripped, song_info, tracker):
-                continue
-
             # try things that are likely to guess wrongly
             if USE_UNRELIABLE_METHODS:
                 # try fuzzy tag matching
@@ -516,6 +510,7 @@ def main():
     print("\nMatches from Fallback (unmatched total is handled by other tracker):\n{}".format(pformat(fallback_tracker.match_counts)))
     print("\nSearched Playlists Statistics:\n{}".format(pformat(tracker.playlist_searches)))
     print("\nIncompleteness of Playlists (Number of missing Songs):\n{}".format(pformat(tracker.num_songs_missing)))
+    print("\nMaximum Fallback Title Tag length encountered: {}".format(fallbackmaxtaglen))
                 
 
 if __name__ == '__main__':
