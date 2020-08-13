@@ -19,6 +19,7 @@ from mutagen.id3 import ID3NoHeaderError
 from enum import Enum
 import mutagen
 from datetime import datetime
+import html
 
 DEBUG_LINUX=(os.name=='posix')and False
 USE_UNRELIABLE_METHODS = False
@@ -217,11 +218,13 @@ class FileInfo:
     def is_tag_set(self):
         return not (True if self.tag is None else self.tag.is_everything_unset())
 
-    def update_from_fs(self):
+    def update_tag_from_fs(self):
+        newly_loaded_tag = False
         try:
             # the returns from mutagen are lists, that's why the index 0 everywhere.
             tag=EasyID3(self.full_path)
             self.tag = FileTag(artist=(tag['artist'][0] if 'artist' in tag else ''), album=(tag['album'][0] if 'album' in tag else ''), title=(tag['title'][0] if 'title' in tag else ''))
+            newly_loaded_tag = True
         except ID3NoHeaderError:
             # This is not a music file or has no tags
             self.tag = None
@@ -231,8 +234,14 @@ class FileInfo:
                 tag = mutagen.File(self.full_path)
                 if tag is not None:
                     self.tag = FileTag(artist=(tag['artist'][0] if 'artist' in tag else ''), album=(tag['album'][0] if 'album' in tag else ''), title=(tag['title'][0] if 'title' in tag else ''))
+                    newly_loaded_tag = True
             except mutagen.mp3.HeaderNotFoundError as err:
                 self.tag = None # happens. "can't sync to MPEG frame" is the ~800th check, so it's probably just not a music file.
+        if newly_loaded_tag:
+            # Need to transform "&quot;", "&amp;" and similar because locally this is stored correctly in the tags.
+            self.tag.title = html.unescape(self.tag.title)
+            self.tag.album = html.unescape(self.tag.album)
+            self.tag.artist = html.unescape(self.tag.artist)
 
 def debug_m(track, music_path=MUSIC_PATH):
     local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(music_path) for filpath in filpaths ]
@@ -416,7 +425,7 @@ def main():
 
     print("Indexing local music file tags...")
     for file_info in local_music_file_infos:
-        file_info.update_from_fs()
+        file_info.update_tag_from_fs()
 
     print("Indexing fallback...") 
     fallback_music_file_infos = []
@@ -430,7 +439,7 @@ def main():
 
         print("Indexing local fallback music tags for {} ...".format(fbpath))
         for file_info in fallback_music_file_infos:
-            file_info.update_from_fs() 
+            file_info.update_tag_from_fs() 
 
     # it would make sense to operate on the filenames instead of the full paths on one hand. 
     # but how to keep track of the actual paths?
@@ -494,7 +503,7 @@ def main():
     print("\nUnmatched Songs: \n{}\n#End List of Unmatched Songs".format(pformat(tracker.unmatched_songs)))
     print("\nFuzzy Stats: \n{}".format(pformat(tracker.fuzzy_details)))
     print("\nFound Matches Statistics:\n{}".format(pformat(tracker.match_counts)))
-    print("\nMatches from Fallback:\n{}".format(pformat(fallback_tracker.match_counts)))
+    print("\nMatches from Fallback (unmatched total is handled by other tracker):\n{}".format(pformat(fallback_tracker.match_counts)))
     print("\nSearched Playlists Statistics:\n{}".format(pformat(tracker.playlist_searches)))
     print("\nIncompleteness of Playlists (Number of missing Songs):\n{}".format(pformat(tracker.num_songs_missing)))
                 
