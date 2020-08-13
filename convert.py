@@ -54,11 +54,19 @@ class MatchSource(Enum):
 
 @dataclass
 class MatchTracker:
-    match_counts = {}
-    unmatched_songs = set()
-    playlist_searches = {}
-    fuzzy_details = {}
-    num_songs_missing = {}
+    match_counts : dict
+    unmatched_songs : set
+    playlist_searches : dict
+    fuzzy_details : dict
+    num_songs_missing : dict
+
+    def __init__(self):
+        self.match_counts = {}
+        self.unmatched_songs = set()
+        self.playlist_searches = {}
+        self.fuzzy_details = {}
+        self.num_songs_missing = {}
+
 
     def match(self, songinfo, path, match_source: MatchSource, fuzzy_info: str = None):
         self.match_counts[match_source] = self.match_counts.get(match_source, 0) + 1
@@ -86,6 +94,7 @@ def print_todos(f=sys.stderr):
     print('\t verify how same songs from different albums/versions are handled', file=f)
     print("\t Compare audios directly?", file=f)
     print("\t query Shazam?", file=f)
+    print("\t copy fallback files to target?", file=f)
 
 def filter_playlists(subfolders):
     """
@@ -391,6 +400,7 @@ def is_ignored(folder):
 
 def main():
     tracker = MatchTracker()
+    fallback_tracker = MatchTracker()
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
     
     print("Collecting playlist directories...\n")
@@ -409,6 +419,8 @@ def main():
         file_info.update_from_fs()
 
     print("Indexing fallback...") 
+    fallback_music_file_infos = []
+    fallback_music_files=[]
     for fallback in GPM_FALLBACK_TRACK_PATHS:
         fbpath = os.path.normpath(fallback)
 
@@ -418,9 +430,7 @@ def main():
 
         print("Indexing local fallback music tags for {} ...".format(fbpath))
         for file_info in fallback_music_file_infos:
-            file_info.update_from_fs()
-
-    
+            file_info.update_from_fs() 
 
     # it would make sense to operate on the filenames instead of the full paths on one hand. 
     # but how to keep track of the actual paths?
@@ -471,6 +481,12 @@ def main():
                 if found_fuzzy_tag_match:
                     continue
 
+            # Not found... let's use the fallback GPM export (if set)
+            # Since the Tags should be correct there, we only check for exact matches. But technically we could also run the other checks.
+            found_exact_gpm_match = find_exact_tag_match(fallback_music_file_infos, song_info, fallback_tracker)
+            if found_exact_gpm_match:
+                continue
+
             # if we're still here, no match has been found for this song.
             tracker.unmatch(song_info)
             tracker.unmatch_for_playlist(playlistname)
@@ -478,6 +494,7 @@ def main():
     print("\nUnmatched Songs: \n{}\n#End List of Unmatched Songs".format(pformat(tracker.unmatched_songs)))
     print("\nFuzzy Stats: \n{}".format(pformat(tracker.fuzzy_details)))
     print("\nFound Matches Statistics:\n{}".format(pformat(tracker.match_counts)))
+    print("\nMatches from Fallback:\n{}".format(pformat(fallback_tracker.match_counts)))
     print("\nSearched Playlists Statistics:\n{}".format(pformat(tracker.playlist_searches)))
     print("\nIncompleteness of Playlists (Number of missing Songs):\n{}".format(pformat(tracker.num_songs_missing)))
                 
