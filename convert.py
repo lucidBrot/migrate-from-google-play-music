@@ -17,6 +17,7 @@ from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3NoHeaderError
 from enum import Enum
 import mutagen
+from datetime import datetime
 
 DEBUG_LINUX=(os.name=='posix')and True
 
@@ -296,25 +297,19 @@ def main():
                 continue
 
             # try fuzzy filename matching in various orders
-            # artist, title, album
-            found_fuzzy_match_by_artist_title_album = find_fuzzy_match(local_music_files, song_info, "{artist}{title}{album}", tracker)
-            if found_fuzzy_match_by_artist_title_album:
-                continue
-
-            # artist, title
-            found_fuzzy_match_by_artist_title = find_fuzzy_match(local_music_files, song_info, "{artist}{title}", tracker)
-            if found_fuzzy_match_by_artist_title:
-                continue
-
-            # artist, album, title
-            found_fuzzy_match_by_artist_album_title = find_fuzzy_match(local_music_files, song_info, "{artist}{album}{title}", tracker)
-            if found_fuzzy_match_by_artist_album_title:
-                continue
-
-            # title
-            found_fuzzy_match_by_title = find_fuzzy_match(local_music_files, song_info, "{title}", tracker)
-            if found_fuzzy_match_by_title:
-                continue
+            fuzzy_match_techniques = [
+                    "{artist}{title}{album}",
+                    "{artist}{title}",
+                    "{artist}{album}{title}",
+                    "{title}",
+                    ]
+            for tec in fuzzy_match_techniques:
+                # if found, break and continue with next song
+                found_fuzzy_match = find_fuzzy_match(local_music_files, song_info, tec, tracker)
+                if found_fuzzy_match:
+                    break
+            if found_fuzzy_match:
+                continue # with next song
 
             # if we're still here, no match has been found for this song.
             tracker.unmatch(song_info)
@@ -333,11 +328,14 @@ if __name__ == '__main__':
             print("hello. Specify some things in the source file with the CAPS LOCKED variables!")
             print("If you're running this in Windows CMD, you might need to `set PYTHONIOENCODING=utf-8` first.")
             print("It is probably advisable to pipe the stdout into a file so that the important messages from STDERR surface clearly.")
+            exit(0)
         if sys.argv[1] == 'here':
             print("using current directory {} as MUSIC_PATH".format(os.getcwd()))
             MUSIC_PATH = os.getcwd()
 
     # always:
+    startTime=datetime.now()
     main()
     print_todos()
+    print("Time: {}".format(datetime.now() - startTime))
 
