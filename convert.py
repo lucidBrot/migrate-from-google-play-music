@@ -4,6 +4,7 @@
 
 # `python convert.py > out.txt`
 #  Computes everything!
+#  Note: Not always will the best bitrate file be chosen. when the files match well enough, we don't consider all the files.
 
 # `python -c "import convert; convert.read_gpm_playlist('/path-to/Google Play Music/Playlists/MyPlaylistDir/')`
 #  Computes Songlist
@@ -73,14 +74,10 @@ def print_todos(f=sys.stderr):
     print("\n--- TODOS ---", file=f)
     print("\t handle the Thumbs Up playlist.", file=f)
     print("\t check for surprising cases with more than two rows in a song csv", file=f)
-    print("\t consider the info in the tags on the music files for better fuzzy matching", file=f)
     print("\t implement caching of file matches", file=f)
     print('\t verify how same songs from different albums/versions are handled', file=f)
     print("\t Compare audios directly?", file=f)
-    print("\t replace dashes and such with whitespace for fuzzy matching?", file=f)
     print("\t query Shazam?", file=f)
-    print("\t Deal with capslock, remove numbers longer than 4 or so digits", file=f)
-    print("\t implement an unreliable check that just compares stripped, whitespaceless, lowercase filename by checking if it contains the tags", file=f)
 
 def filter_playlists(subfolders):
     """
