@@ -99,7 +99,9 @@ class Playlist:
 
     def debug_isabs_check(self):
         for elem in self.content:
-            assert not os.path.isabs(elem), "[Playlist {}]: {} failed the check. It should have been {}".format(self.name, elem, os.path.abspath(elem))
+            if not os.path.isabs(elem):
+                print("-- {} --\n".format(os.path.isabs(os.path.abspath(elem))))
+            assert os.path.isabs(elem), "[Playlist {}]: {} failed the check. It should have been {}".format(self.name, elem, os.path.abspath(elem))
 
 
 @dataclass
@@ -328,7 +330,7 @@ class FileInfo:
             self.tag.artist = html.unescape(self.tag.artist)
 
 def debug_m(track, music_path=MUSIC_PATH):
-    local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.normpath(os.path.join(dirpath, filpath))) for (dirpath, _dirs, filpaths) in os.walk(music_path) for filpath in filpaths ]
+    local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.abspath(os.path.join(dirpath, filpath))) for (dirpath, _dirs, filpaths) in os.walk(music_path) for filpath in filpaths ]
     local_music_files=map(lambda x: x.get_plain_filename(), local_music_file_infos)
     a=find_match(track, local_music_files)
     print(a if a else "No match")
@@ -384,17 +386,18 @@ def find_fuzzy_tag_match(local_music_file_infos, song_info, tracker: MatchTracke
         return True
     return False
 
-def find_fuzzy_match(local_music_files, song_info, searchterm: str, tracker: MatchTracker, playlist: Playlist):
+def find_fuzzy_match(local_music_file_infos, song_info, searchterm: str, tracker: MatchTracker, playlist: Playlist):
     """
         Return True if found, false otherwise. If found, calls match.
     """
-    song_path = find_match(searchterm.format(title=song_info.title, artist=song_info.artist, album=song_info.album),
-        local_music_files        
+    song_name = find_match(searchterm.format(title=song_info.title, artist=song_info.artist, album=song_info.album),
+        [f.filename for f in local_music_file_infos]
     )
-    if song_path is None:
+    if song_name is None:
         return False
     else:
         # We found the song path that belongs to this song_info!
+        song_path = [f.full_path for f in local_music_file_infos if f.filename == song_name][0]
         print("Fuzzy Match for {title} by {artist} from Album {album} to path {tpath}".format(
             title=song_info.title, album=song_info.album, artist=song_info.artist,
             tpath=song_path
@@ -622,8 +625,10 @@ def main():
         print("\tPlaylist: {}".format(playlistname))
 
     print("Indexing local music files...")
-    local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(MUSIC_PATH) for filpath in filpaths if not is_ignored(dirpath) ]
-    local_music_files=map(lambda x: x.get_plain_filename(), local_music_file_infos)
+    local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.abspath(os.path.join(dirpath, filpath))) for (dirpath, _dirs, filpaths) in os.walk(MUSIC_PATH) for filpath in filpaths if not is_ignored(dirpath) ]
+
+    for lmfi_debug in local_music_file_infos:
+        assert os.path.isabs(lmfi_debug.full_path), "Check Failed for {}".format(lmfi_debug.full_path)
 
     print("Indexing local music file tags...")
     for file_info in local_music_file_infos:
@@ -698,7 +703,7 @@ def main():
                         ]
                 for tec in fuzzy_match_techniques:
                     # if found, break and continue with next song
-                    found_fuzzy_match = find_fuzzy_match(local_music_files, song_info, tec, tracker, playlist=playlist)
+                    found_fuzzy_match = find_fuzzy_match(local_music_file_infos, song_info, tec, tracker, playlist=playlist)
                     if found_fuzzy_match:
                         break
                 if found_fuzzy_match:
