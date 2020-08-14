@@ -148,13 +148,10 @@ class MatchTracker:
 
 def print_todos(f=sys.stderr):
     print("\n--- TODOS ---", file=f)
-    print("\t check for surprising cases with more than two rows in a song csv", file=f)
+    print("\t Check for surprising cases with more than two rows in a song csv. (In my 4000 test cases this never occurred)", file=f)
     print("\t implement caching of file matches", file=f)
-    print('\t verify how same songs from different albums/versions are handled', file=f)
-    print("\t Compare audios directly?", file=f)
-    print("\t query Shazam?", file=f)
-    print("\t copy fallback files to target?", file=f)
     print("\t Relative Paths!", file=f)
+    print("\t Find duplicate files in music library and suggest deletion of all but the best one.", file=f)
 
 def filter_playlists(subfolders):
     """
