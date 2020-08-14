@@ -35,7 +35,9 @@ IGNORE_MUSIC_FOLDERS=['@eaDir', os.path.basename(OUTPUT_PLAYLIST_DIR_RELATIVE)]
 MAKE_PLAYLISTS_RELATIVE_TO_OUTPUT_PLAYLIST_DIR=True
 SAVE_ABSOLUTE_PLAYLISTS=True # No harm done in always keeping this True
 REDUCE_PLAYLIST_REDUNDANCIES=True
-DELETE_REDUNDANT_FILES_IN_MUSIC_PATH=True
+DELETE_REDUNDANT_FILES_IN_MUSIC_PATH=True # only makes sense with REDUCE_PLAYLIST_REDUNDANCIES
+# set this to False or None if you trust deletion, otherwise specify a trash bin directory for later manual deletion
+MOVE_FILES_INSTEAD_OF_DELETION=os.path.normpath('N:\Temp\GPM_Deletion')
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
@@ -779,9 +781,29 @@ def update_playlists(playlists, redundancies):
             pl.add(p)
     return playlists
 
-def delete_redundant_files(redundancies):
-    #stub
+def delete_redundant_files(redundancies, folder=MUSIC_PATH, move_instead_of_delete=MOVE_FILES_INSTEAD_OF_DELETION):
+    """
+        delete all that are not the first in their list and that are within the music path
+
+        redundancies: a dict of { hash string : list of paths }
+        folder: folder to delete within
+        move_instead_of_delete: a trash bin path or a falsy value
+    """
+    verb="Deleted"
+    if move_instead_of_delete: 
+        os.makedirs(os.path.normpath(move_instead_of_delete), exist_ok=True)
+        verb="Moved"
+
+    counter=0
+    for mdhash, redlist in redundancies.items():
+        for entry in redlist[1:]:
+            counter+=1
+            if move_instead_of_delete: 
+                shutil.move(os.path.normpath(entry), move_instead_of_delete)
+            else:
+                os.remove(os.path.normpath(entry))
     pass
+    print("{verbd} {n} files.}".format(verbd=verb, n=counter))
 
 def main():
     startTime=datetime.now()
@@ -935,8 +957,10 @@ def main():
     if REDUCE_PLAYLIST_REDUNDANCIES:
         redundancies = compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH) # a dict of file hashes and a list of paths
         output_playlists=update_playlists(output_playlists, redundancies) # only use the first file of each list
+    else:
+        redundancies = {}
     if DELETE_REDUNDANT_FILES_IN_MUSIC_PATH:
-        delete_redundant_files(redundancies) # delete all that are not the first in their list and that are within the music path
+        delete_redundant_files(redundancies, folder=MUSIC_PATH) # delete all that are not the first in their list and that are within the music path
     if SAVE_ABSOLUTE_PLAYLISTS:
         save_playlist_files(output_playlists, outdir=OUTPUT_PLAYLIST_DIR)
     if MAKE_PLAYLISTS_RELATIVE_TO_OUTPUT_PLAYLIST_DIR:
