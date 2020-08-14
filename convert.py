@@ -555,7 +555,7 @@ def complete_playlists_interactively(playlists: list):
         # include that content as specified by the user
         print("Loading preexisting data...")
         for key, value in data.items():
-            user_specifiable_mappings[key] = value
+            user_specifiable_mappings[key] = os.path.normpath(value)
 
         # do we still need user input after this?
         need_more_input=False
@@ -631,6 +631,7 @@ def relativate_playlists(abs_playlists: list, relative_to=OUTPUT_PLAYLIST_DIR_RE
     return rel_playlists
 
 def main():
+    startTime=datetime.now()
     tracker = MatchTracker()
     fallback_tracker = MatchTracker()
     print("Considering any playlists in {}".format(PLAYLISTS_PATH))
@@ -773,6 +774,7 @@ def main():
     print("\nMatches from Fallback (unmatched total is handled by other tracker):\n{}".format(pformat(fallback_tracker.match_counts)))
     print("\nSearched Playlists Statistics:\n{}".format(pformat(tracker.playlist_searches)))
     print("\nIncompleteness of Playlists (Number of missing Songs):\n{}".format(pformat(tracker.num_songs_missing)))
+    print("Time: {}".format(datetime.now() - startTime))
 
     output_playlists=complete_playlists_interactively(output_playlists)
     if COPY_FALLBACK_GPM_MUSIC:
@@ -795,9 +797,7 @@ if __name__ == '__main__':
             MUSIC_PATH = os.getcwd()
 
     # always:
-    startTime=datetime.now()
     main()
     print_todos()
-    print("Time: {}".format(datetime.now() - startTime))
     print("Done", file=sys.stderr)
 
