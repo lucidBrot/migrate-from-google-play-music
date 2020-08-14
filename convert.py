@@ -685,7 +685,8 @@ def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH):
     # See https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
     for lmfi in local_music_file_infos:
         progressctr+=1
-        print("[HASHING]: Progress {} / {}".format(progressctr, progresstotal))
+        if progressctr % 200 == 0:
+            print("[HASHING]: Progress {} / {}".format(progressctr, progresstotal))
         mdhash=hash_file_md5(lmfi.full_path)
         # add to dict
         redundancies[mdhash] = redundancies.get(mdhash, list()) + [lmfi.full_path]
@@ -699,7 +700,8 @@ def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH):
             # compare the first item to each other
             hashctr = 0
             progressctr+=1
-            print("[HASH COLLISION DETECTION]: Progress {} / {}".format(progressctr, progresstotal))
+            if progressctr % 200 == 0:
+                print("[HASH COLLISION DETECTION]: Progress {} / {}".format(progressctr, progresstotal))
             while True:
                 if len(pathlist) == 1:
                     # only one item? it's the same xD
