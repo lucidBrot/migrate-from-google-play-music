@@ -27,8 +27,11 @@ DEBUG_LINUX=(os.name=='posix')and False
 USE_UNRELIABLE_METHODS = False
 IGNORE_MUSIC_FOLDERS=['@eaDir']
 HANDLE_THUMBS_UP=True
+# Note that path settings are relative to the current working directory if you don't specify absolute paths.
 OUTPUT_PLAYLIST_DIR=os.path.normpath('output_playlists')
+OUTPUT_PLAYLIST_DIR_RELATIVE=os.path.normpath('N:\Files\Musik\playlists_relative')
 MAKE_PLAYLISTS_RELATIVE_TO_OUTPUT_PLAYLIST_DIR=True
+SAVE_ABSOLUTE_PLAYLISTS=True # No harm done in always keeping this True
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
@@ -149,7 +152,7 @@ class MatchTracker:
 def print_todos(f=sys.stderr):
     print("\n--- TODOS ---", file=f)
     print("\t Check for surprising cases with more than two rows in a song csv. (In my 4000 test cases this never occurred)", file=f)
-    print("\t implement caching of file matches", file=f)
+    print("\t Implement caching of file matches", file=f)
     print("\t Relative Paths!", file=f)
     print("\t Find duplicate files in music library and suggest deletion of all but the best one.", file=f)
 
@@ -604,12 +607,28 @@ def copy_files_over(playlists: list, targetdir=COPY_FALLBACKS_TO_PATH, musicdir=
 
     return playlists
 
-def relativate_playlists(playlists: list, relative_to=OUTPUT_PLAYLIST_DIR):
+def relativate_playlists(abs_playlists: list, relative_to=OUTPUT_PLAYLIST_DIR_RELATIVE):
     """
-       Modify Playlists to use relative paths 
+       COPY Playlists to use relative paths 
     """
-    # stub
-    return playlists
+    rel_playlists = []
+    for abs_playlist in abs_playlists:
+        rel_playlist = Playlist(name=abs_playlist.name)
+        rel_playlists.append(rel_playlist)
+        rel_playlist.content = []
+        for abspath in abs_playlist.content:
+            try:
+                # create relative path. This could fail.
+                relpath = os.path.relpath(abspath, start=relative_to)
+                # transform to forward slashes
+                pl_line = relpath.replace('\\', '/')
+                rel_playlist.content.append(pl_line)
+            except ValueError as ve:
+                # target is probably on a different drive.
+                print("Target path {abspath} cannot be translated to a relative path. Is it on a different drive than {mus} is? Consider activating the Copying from Fallback Dirs".format(abspath=abspath, mus=relative_to), file=sys.stderr)
+                raise ve
+
+    return rel_playlists
 
 def main():
     tracker = MatchTracker()
@@ -758,9 +777,11 @@ def main():
     output_playlists=complete_playlists_interactively(output_playlists)
     if COPY_FALLBACK_GPM_MUSIC:
         output_playlists=copy_files_over(output_playlists)
+    if SAVE_ABSOLUTE_PLAYLISTS:
+        save_playlist_files(output_playlists, outdir=OUTPUT_PLAYLIST_DIR)
     if MAKE_PLAYLISTS_RELATIVE_TO_OUTPUT_PLAYLIST_DIR:
-        output_playlists=relativate_playlists(output_playlists, relative_to=OUTPUT_PLAYLIST_DIR)
-    save_playlist_files(output_playlists)
+        output_playlists_rel=relativate_playlists(output_playlists, relative_to=OUTPUT_PLAYLIST_DIR_RELATIVE)
+        save_playlist_files(output_playlists_rel, outdir=OUTPUT_PLAYLIST_DIR_RELATIVE)
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
