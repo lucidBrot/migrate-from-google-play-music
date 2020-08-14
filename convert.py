@@ -22,6 +22,7 @@ from datetime import datetime
 import html
 import json
 import shutil, filecmp
+import hashlib
 
 DEBUG_LINUX=(os.name=='posix')and False
 USE_UNRELIABLE_METHODS = False
@@ -32,6 +33,7 @@ OUTPUT_PLAYLIST_DIR=os.path.normpath('output_playlists')
 OUTPUT_PLAYLIST_DIR_RELATIVE=os.path.normpath('N:\Files\Musik\playlists_relative')
 MAKE_PLAYLISTS_RELATIVE_TO_OUTPUT_PLAYLIST_DIR=True
 SAVE_ABSOLUTE_PLAYLISTS=True # No harm done in always keeping this True
+DELETE_REDUNDANT_FILES_IN_MUSIC_PATH=False
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
@@ -54,6 +56,11 @@ GPM_FALLBACK_TRACK_PATHS = [
         os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Tracks'),
         os.path.normpath('F:\PlayMusic'),
         ]
+
+# For de-duplication of the music library
+# Set this to true only if you are willing to wait a long time for the script to run.
+# Also, not well tested.
+I_AM_SCARED_OF_HASH_COLLISIONS=False
 
 class MatchSource(Enum):
     EXACT_TAG_MATCH = 1
@@ -152,8 +159,7 @@ class MatchTracker:
 def print_todos(f=sys.stderr):
     print("\n--- TODOS ---", file=f)
     print("\t Check for surprising cases with more than two rows in a song csv. (In my 4000 test cases this never occurred)", file=f)
-    print("\t Implement caching of file matches", file=f)
-    print("\t Relative Paths!", file=f)
+    print("\t Implement caching of file matches across playlists?", file=f)
     print("\t Find duplicate files in music library and suggest deletion of all but the best one.", file=f)
 
 def filter_playlists(subfolders):
@@ -630,6 +636,101 @@ def relativate_playlists(abs_playlists: list, relative_to=OUTPUT_PLAYLIST_DIR_RE
 
     return rel_playlists
 
+def debug_create_lmfi_sans_tags():
+    return [FileInfo(filename=filpath, full_path=os.path.abspath(os.path.join(dirpath, filpath))) for (dirpath, _dirs, filpaths) in os.walk(MUSIC_PATH) for filpath in filpaths if not is_ignored(dirpath) ]
+
+def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH, BUF_SIZE=2*65536):
+    """
+        The files aren't that big, so we wouldn't need to compute a hash for comparison... but since we need one for tracking... we compute one. Then if the hashes match up, we can do a quick comparison.
+
+        BUF_SIZE is arbitrarily chosen to read files in 128kb chunks.
+    """
+    startTime=datetime.now()
+    redundancies = {} # maps hexdigest of hash to list of file paths
+    progressctr=0
+    progresstotal=len(local_music_file_infos)
+    # See https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
+    for lmfi in local_music_file_infos:
+        progressctr+=1
+        print("[HASHING]: Progress {} / {}".format(progressctr, progresstotal))
+        # compute md5 without reading the whole file at once. Maybe not necessary, but whatever.
+        md5=hashlib.md5()
+        with open(lmfi.full_path, 'rb') as f:
+            while True:
+                data = f.read(BUF_SIZE)
+                if not data:
+                    break
+                md5.update(data)
+        mdhash = md5.hexdigest()
+        # add to dict
+        redundancies[mdhash] = redundancies.get(mdhash, list()) + [lmfi.full_path]
+    
+    if I_AM_SCARED_OF_HASH_COLLISIONS:
+        # make sure they really are equal, byte for byte. If we're unsure, we better treat them as distinct
+        out_redundancies = {}
+        progressctr=0
+        progresstotal = len(redundancies.keys())
+        for mdhash, pathlist in redundancies.items():
+            # compare the first item to each other
+            hashctr = 0
+            progressctr+=1
+            print("[HASH COLLISION DETECTION]: Progress {} / {}".format(progressctr, progresstotal), file=sys.stderr)
+            while True:
+                if len(pathlist) == 1:
+                    # only one item? it's the same xD
+                    hashctr+=1
+                    out_redundancies[mdhash + str(hashctr)]
+                    break
+                if len(pathlist) == 0:
+                    # I don't even
+                    break
+                # the nontrivial case
+                eq_to_first = [filecmp.cmp(pathlist[0], pathlist[i]) for i in range(1, len(pathlist))]
+                try:
+                    num_the_same = sum(eq_to_first)
+                except IndexError as e:
+                    # debugging issue
+                    print("{}".eq_to_first())
+                    raise e
+                if num_the_same == len(pathlist):
+                    # everything is the same, nothing needs to be rearranged
+                    hashctr+=1
+                    out_redundancies[mdhash+str(hashctr)] = pathlist
+                    break
+                else:
+                    same=[pathlist[0]]
+                    not_same=[]
+                    for i in range(len(eq_to_first)):
+                        if eq_to_first[i]:
+                            # the ith entry in eq_to_first is the i+1st entry in pathlist
+                            same.append(pathlist[i+1])
+                        else:
+                            not_same.append(pathlist[i+1])
+                    # store again, but with modified (longer) hash
+                    # "same" is at least 1 entry long
+                    hashctr+=1
+                    samehash=mdhash+str(hashctr)
+                    out_redundancies[samehash] = same
+                    # "not_same" is re-considered if not empty. The case where len(not_same)==1 is handled at the start of the next loop iteration
+                    if len(not_same) > 0:
+                        # the not_same need to be checked again among themselves.
+                        pathlist=not_same
+                        # eventually, when all not_same are equal, they will be added
+                    continue
+    else:
+        # not scared of hash collisions
+        out_redundancies = redundancies
+
+    print("Time: {}".format(datetime.now() - startTime))
+    return out_redundancies
+
+def update_playlists(playlists, redundancies):
+    return playlists # stub
+
+def delete_redundant_files(redundancies):
+    #stub
+    pass
+
 def main():
     startTime=datetime.now()
     tracker = MatchTracker()
@@ -779,6 +880,10 @@ def main():
     output_playlists=complete_playlists_interactively(output_playlists)
     if COPY_FALLBACK_GPM_MUSIC:
         output_playlists=copy_files_over(output_playlists)
+    if DELETE_REDUNDANT_FILES_IN_MUSIC_PATH:
+        redundancies = compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH) # a dict of file hashes and a list of paths
+        output_playlists=update_playlists(output_playlists, redundancies) # only use the first file of each list
+        delete_redundant_files(redundancies) # delete all that are not the first in their list and that are within the music path
     if SAVE_ABSOLUTE_PLAYLISTS:
         save_playlist_files(output_playlists, outdir=OUTPUT_PLAYLIST_DIR)
     if MAKE_PLAYLISTS_RELATIVE_TO_OUTPUT_PLAYLIST_DIR:
