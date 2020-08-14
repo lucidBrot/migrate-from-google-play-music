@@ -389,7 +389,7 @@ def find_fuzzy_match(local_music_file_infos, song_info, searchterm: str, tracker
     """
         Return True if found, false otherwise. If found, calls match.
     """
-    song_name = find_match(searchterm.format(title=song_info.title, artist=song_info.artist, album=song_info.album, cutoff=0.5),
+    song_name = find_match(searchterm.format(title=song_info.title, artist=song_info.artist, album=song_info.album, cutoff=0.3),
         [f.filename for f in local_music_file_infos]
     )
     if song_name is None:
@@ -718,33 +718,6 @@ def main():
                     match_found=True
                     break
 
-                # try fuzzy filename matching in various orders
-                fuzzy_match_techniques = [
-                        "{artist}{title}{album}",
-                        "{artist}{title}",
-                        "{artist}{album}{title}",
-                        "{title}",
-                        "{title} - {artist}",
-                        ]
-                for tec in fuzzy_match_techniques:
-                    # if found, break and continue with next song
-                    found_fuzzy_match = find_fuzzy_match(local_music_file_infos, song_info, tec, tracker, playlist=playlist)
-                    if found_fuzzy_match:
-                        break
-                if found_fuzzy_match:
-                    #continue with next song
-                    match_found=True
-                    break
-
-
-                # try things that are likely to guess wrongly
-                if USE_UNRELIABLE_METHODS:
-                    # try fuzzy tag matching
-                    found_fuzzy_tag_match = find_fuzzy_tag_match(local_music_file_infos, song_info, tracke, playlist=playlistr)
-                    if found_fuzzy_tag_match:
-                        match_found=True
-                        break
-
                 # Not found... let's use the fallback GPM export (if set)
                 # Since the Tags should be correct there, we only check for exact matches. But technically we could also run the other checks.
                 found_exact_gpm_match = find_exact_tag_match(fallback_music_file_infos, song_info, fallback_tracker, playlist=playlist)
@@ -755,6 +728,32 @@ def main():
                 if find_substring_tag_match(fallback_music_file_infos, song_info, fallback_tracker, playlist=playlist):
                     match_found=True
                     break
+
+                # try things that are likely to guess wrongly
+                if USE_UNRELIABLE_METHODS:
+                    # try fuzzy filename matching in various orders
+                    fuzzy_match_techniques = [
+                            "{artist}{title}{album}",
+                            "{artist}{title}",
+                            "{artist}{album}{title}",
+                            "{title}",
+                            "{title} - {artist}",
+                            ]
+                    for tec in fuzzy_match_techniques:
+                        # if found, break and continue with next song
+                        found_fuzzy_match = find_fuzzy_match(local_music_file_infos, song_info, tec, tracker, playlist=playlist)
+                        if found_fuzzy_match:
+                            break
+                    if found_fuzzy_match:
+                        #continue with next song
+                        match_found=True
+                        break
+                    
+                    # try fuzzy tag matching
+                    found_fuzzy_tag_match = find_fuzzy_tag_match(local_music_file_infos, song_info, tracke, playlist=playlistr)
+                    if found_fuzzy_tag_match:
+                        match_found=True
+                        break
 
                 if (hack_one == 1):
                     # Not sure if this restoration is ever relevant, but why not do it.
