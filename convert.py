@@ -26,15 +26,16 @@ import hashlib
 
 DEBUG_LINUX=(os.name=='posix')and False
 USE_UNRELIABLE_METHODS = False
-IGNORE_MUSIC_FOLDERS=['@eaDir', 'playlists_relative']
 HANDLE_THUMBS_UP=True
 # Note that path settings are relative to the current working directory if you don't specify absolute paths.
 OUTPUT_PLAYLIST_DIR=os.path.normpath('output_playlists')
 OUTPUT_PLAYLIST_DIR_RELATIVE=os.path.normpath('N:\Files\Musik\playlists_relative')
+# Not ignoring the OUTPUT_PLAYLIST_DIR_RELATIVE is risky if you activated DELETE_REDUNDANT_FILES_IN_MUSIC_PATH because itmight delete generated playlists there.
+IGNORE_MUSIC_FOLDERS=['@eaDir', os.path.basename(OUTPUT_PLAYLIST_DIR_RELATIVE)]
 MAKE_PLAYLISTS_RELATIVE_TO_OUTPUT_PLAYLIST_DIR=True
 SAVE_ABSOLUTE_PLAYLISTS=True # No harm done in always keeping this True
 REDUCE_PLAYLIST_REDUNDANCIES=True
-DELETE_REDUNDANT_FILES_IN_MUSIC_PATH=False
+DELETE_REDUNDANT_FILES_IN_MUSIC_PATH=True
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
