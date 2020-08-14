@@ -595,7 +595,8 @@ def complete_playlists_interactively(playlists: list):
                 #print("JSON DATA TO WRITE: \n{}\n".format(data_to_write))
                 jsf.write(data_to_write)
                 print("Need more inputs in file _missing_matches.json!", file=sys.stderr)
-            input("Press ENTER when ready", file=sys.stderr)
+            print("Press ENTER when ready!", file=sys.stderr)
+            input("")
 
     print("No more inputs needed by user!")
     if not never_needed_input:
@@ -814,7 +815,7 @@ def delete_redundant_files(redundancies, folder=MUSIC_PATH, move_instead_of_dele
             else:
                 os.remove(os.path.normpath(entry))
     pass
-    print("{verbd} {n} files.}".format(verbd=verb, n=counter))
+    print("{verbd} {n} files.".format(verbd=verb, n=counter))
 
 def main():
     startTime=datetime.now()
