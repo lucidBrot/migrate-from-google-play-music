@@ -26,7 +26,7 @@ import hashlib
 
 DEBUG_LINUX=(os.name=='posix')and False
 USE_UNRELIABLE_METHODS = False
-IGNORE_MUSIC_FOLDERS=['@eaDir']
+IGNORE_MUSIC_FOLDERS=['@eaDir', 'playlists_relative']
 HANDLE_THUMBS_UP=True
 # Note that path settings are relative to the current working directory if you don't specify absolute paths.
 OUTPUT_PLAYLIST_DIR=os.path.normpath('output_playlists')
