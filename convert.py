@@ -541,9 +541,11 @@ def complete_playlists_interactively(playlists: list):
         need_more_input=True
     else:
         need_more_input=False
+        never_needed_input=True
         print("Don't require any user input. Found everything!")
 
     while need_more_input:
+        never_needed_input=False
         print("looping because need more input...")
         try:
             with open(os.path.join(OUTPUT_PLAYLIST_DIR, jsonfile), "r", encoding="utf-8") as jsf:
@@ -584,7 +586,8 @@ def complete_playlists_interactively(playlists: list):
             input("Press ENTER when ready", file=sys.stderr)
 
     print("No more inputs needed by user!")
-    print("Thanks!", file=sys.stderr)
+    if not never_needed_input:
+        print("Thanks!", file=sys.stderr)
     for playlist in playlists:
         playlist.update_placeholders(user_specifiable_mappings)
 
