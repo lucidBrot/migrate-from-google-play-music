@@ -674,7 +674,7 @@ def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH, BUF_SIZE=
             # compare the first item to each other
             hashctr = 0
             progressctr+=1
-            print("[HASH COLLISION DETECTION]: Progress {} / {}".format(progressctr, progresstotal), file=sys.stderr)
+            print("[HASH COLLISION DETECTION]: Progress {} / {}".format(progressctr, progresstotal))
             while True:
                 if len(pathlist) == 1:
                     # only one item? it's the same xD
@@ -721,8 +721,19 @@ def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH, BUF_SIZE=
         # not scared of hash collisions
         out_redundancies = redundancies
 
+    # Now get rid of memory usage for those that are alone.
+    print("building smaller dictionary")
+    redundancies={}
+    for key, val in out_redundancies.items():
+        if len(val) > 1:
+            redundancies[key]=val
+
+
     print("Time: {}".format(datetime.now() - startTime))
-    return out_redundancies
+    with open(os.path.join(OUTPUT_PLAYLIST_DIR, "redundancies.json"), "w", encoding="utf-8") as jsf:
+        json.dump(redundancies, jsf)
+
+    return redundancies
 
 def update_playlists(playlists, redundancies):
     return playlists # stub
