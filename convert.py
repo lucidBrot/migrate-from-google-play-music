@@ -33,6 +33,7 @@ OUTPUT_PLAYLIST_DIR=os.path.normpath('output_playlists')
 OUTPUT_PLAYLIST_DIR_RELATIVE=os.path.normpath('N:\Files\Musik\playlists_relative')
 MAKE_PLAYLISTS_RELATIVE_TO_OUTPUT_PLAYLIST_DIR=True
 SAVE_ABSOLUTE_PLAYLISTS=True # No harm done in always keeping this True
+REDUCE_PLAYLIST_REDUNDANCIES=True
 DELETE_REDUNDANT_FILES_IN_MUSIC_PATH=False
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
@@ -566,7 +567,10 @@ def complete_playlists_interactively(playlists: list):
         # do we still need user input after this?
         need_more_input=False
         for key, value in user_specifiable_mappings.items():
-            if value is None or value == "" or value == infostring:
+            valueFileExists=os.path.isfile(value)
+            if not valueFileExists:
+                print("You entered an invalid path {}".format(value), file=sys.stderr)
+            if value is None or value == "" or value == infostring or not valueFileExists:
                 print("Need info for {}".format(key))
                 need_more_input = True
 
@@ -577,9 +581,10 @@ def complete_playlists_interactively(playlists: list):
                 #print("JSON DATA TO WRITE: \n{}\n".format(data_to_write))
                 jsf.write(data_to_write)
                 print("Need more inputs in file _missing_matches.json!", file=sys.stderr)
-            input("Press ENTER when ready")
+            input("Press ENTER when ready", file=sys.stderr)
 
     print("No more inputs needed by user!")
+    print("Thanks!", file=sys.stderr)
     for playlist in playlists:
         playlist.update_placeholders(user_specifiable_mappings)
 
@@ -640,32 +645,32 @@ def debug_create_lmfi_sans_tags():
     return [FileInfo(filename=filpath, full_path=os.path.abspath(os.path.join(dirpath, filpath))) for (dirpath, _dirs, filpaths) in os.walk(MUSIC_PATH) for filpath in filpaths if not is_ignored(dirpath) ]
 
 @dataclass
-def HashCacheSingleton:
+class HashCacheSingleton:
     filehashes={}
 
 def hash_file_md5(filepath, BUF_SIZE=2*65536):
     """
         BUF_SIZE is arbitrarily chosen to read files in 128kb chunks.
     """
-        # check cache
-        cc = HashCacheSingleton.filehashes.get(filepath, None)
-        if cc:
-            return cc
+    # check cache
+    cc = HashCacheSingleton.filehashes.get(filepath, None)
+    if cc:
+        return cc
 
-        # compute md5 without reading the whole file at once. Maybe not necessary, but whatever.
-        md5=hashlib.md5()
-        with open(filepath, 'rb') as f:
-            while True:
-                data = f.read(BUF_SIZE)
-                if not data:
-                    break
-                md5.update(data)
-        mdhash = md5.hexdigest()
+    # compute md5 without reading the whole file at once. Maybe not necessary, but whatever.
+    md5=hashlib.md5()
+    with open(os.path.normpath(filepath), 'rb') as f:
+        while True:
+            data = f.read(BUF_SIZE)
+            if not data:
+                break
+            md5.update(data)
+    mdhash = md5.hexdigest()
 
-        # cache
-        HashCacheSingleton.filehashes[filepath] = mdhash
+    # cache
+    HashCacheSingleton.filehashes[filepath] = mdhash
 
-        return mdhash
+    return mdhash
 
 def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH):
     """
@@ -762,7 +767,7 @@ def update_playlists(playlists, redundancies):
     for playlist in playlists:
         name=playlist.name
         pl=Playlist(name=name)
-        for songpath in playlist:
+        for songpath in playlist.content:
             mdhash = hash_file_md5(songpath) 
             p = redundancies.get(mdhash, [None])[0] or songpath
             pl.add(p)
@@ -921,9 +926,10 @@ def main():
     output_playlists=complete_playlists_interactively(output_playlists)
     if COPY_FALLBACK_GPM_MUSIC:
         output_playlists=copy_files_over(output_playlists)
-    if DELETE_REDUNDANT_FILES_IN_MUSIC_PATH:
+    if REDUCE_PLAYLIST_REDUNDANCIES:
         redundancies = compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH) # a dict of file hashes and a list of paths
         output_playlists=update_playlists(output_playlists, redundancies) # only use the first file of each list
+    if DELETE_REDUNDANT_FILES_IN_MUSIC_PATH:
         delete_redundant_files(redundancies) # delete all that are not the first in their list and that are within the music path
     if SAVE_ABSOLUTE_PLAYLISTS:
         save_playlist_files(output_playlists, outdir=OUTPUT_PLAYLIST_DIR)
