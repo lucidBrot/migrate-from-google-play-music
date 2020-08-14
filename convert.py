@@ -761,7 +761,7 @@ def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH):
 
     print("Time: {}".format(datetime.now() - startTime))
     with open(os.path.join(OUTPUT_PLAYLIST_DIR, "redundancies.json"), "w", encoding="utf-8") as jsf:
-        json.dump(redundancies, jsf)
+        json.dump(redundancies, jsf, indent=4)
 
     return redundancies
 
