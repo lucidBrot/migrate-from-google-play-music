@@ -389,7 +389,7 @@ def find_fuzzy_match(local_music_file_infos, song_info, searchterm: str, tracker
     """
         Return True if found, false otherwise. If found, calls match.
     """
-    song_name = find_match(searchterm.format(title=song_info.title, artist=song_info.artist, album=song_info.album),
+    song_name = find_match(searchterm.format(title=song_info.title, artist=song_info.artist, album=song_info.album, cutoff=0.5),
         [f.filename for f in local_music_file_infos]
     )
     if song_name is None:
