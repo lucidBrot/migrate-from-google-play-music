@@ -21,6 +21,7 @@ import mutagen
 from datetime import datetime
 import html
 import json
+import shutil, filecmp
 
 DEBUG_LINUX=(os.name=='posix')and False
 USE_UNRELIABLE_METHODS = False
@@ -147,7 +148,6 @@ def print_todos(f=sys.stderr):
     print("\t Compare audios directly?", file=f)
     print("\t query Shazam?", file=f)
     print("\t copy fallback files to target?", file=f)
-    print("\t Ask user for missing paths!", file=f)
     print("\t Relative Paths!", file=f)
 
 def filter_playlists(subfolders):
@@ -514,6 +514,7 @@ def save_playlist_files(playlists: list, outdir=OUTPUT_PLAYLIST_DIR):
 def complete_playlists_interactively(playlists: list):
     """
         Asks user for inputs for the missing paths and returns an updated list.
+        Modifies the Playlists!
     """
     user_specifiable_mappings = {}
     infostring="SPECIFY_PATH_HERE"
@@ -570,12 +571,32 @@ def complete_playlists_interactively(playlists: list):
 
     return playlists
 
-def copy_files_over(playlists: list, targetdir=COPY_FALLBACKS_TO_PATH, musicpath=MUSIC_PATH):
+def path_a_in_b(a, b):
+    """
+        Not considering symbolic links... be careful with them.
+    """
+    aa = os.path.normpath(a)
+    bb = os.path.normpath(b)
+    return aa.startswith(os.path.abspath(bb) + os.sep) or aa == bb
+
+def copy_files_over(playlists: list, targetdir=COPY_FALLBACKS_TO_PATH, musicdir=MUSIC_PATH):
     """
         Copy files to path unless they are located in the musicpath already.
-        Update playlists.
+        Modifies the Playlists!
     """
-    # stub
+    os.makedirs(os.path.normpath(targetdir), exist_ok=True)
+    for playlist in playlists:
+        for i in range(len(playlist.content)):
+            entry = playlist.content[i]
+            if not path_a_in_b(entry, musicdir):
+                # copy file
+                filename = os.path.basename(entry)
+                target_path = os.path.normpath(os.path.join(targetdir, filename))
+                if not os.path.exists(target_path) or not filecmp.cmp(target_path, entry):
+                    shutil.copyfile(os.path.normpath(entry), target_path)
+                # update playlist
+                playlist.content[i] = target_path
+
     return playlists
 
 def relativate_playlists(playlists: list, relative_to=OUTPUT_PLAYLIST_DIR):
