@@ -97,6 +97,10 @@ class Playlist:
                 key = self.content[i][len(Playlist.PLACEHOLDER):]
                 self.content[i] = new_info.get(key, self.content[i])
 
+    def debug_isabs_check(self):
+        for elem in self.content:
+            assert not os.path.isabs(elem), "[Playlist {}]: {} failed the check. It should have been {}".format(self.name, elem, os.path.abspath(elem))
+
 
 @dataclass
 class MatchTracker:
@@ -125,6 +129,7 @@ class MatchTracker:
         # store result
         if playlist != None:
             playlist.add(path)
+            playlist.debug_isabs_check()
 
     def unmatch_for_playlist(self, playlist):
         """
@@ -323,7 +328,7 @@ class FileInfo:
             self.tag.artist = html.unescape(self.tag.artist)
 
 def debug_m(track, music_path=MUSIC_PATH):
-    local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.join(dirpath, filpath)) for (dirpath, _dirs, filpaths) in os.walk(music_path) for filpath in filpaths ]
+    local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.normpath(os.path.join(dirpath, filpath))) for (dirpath, _dirs, filpaths) in os.walk(music_path) for filpath in filpaths ]
     local_music_files=map(lambda x: x.get_plain_filename(), local_music_file_infos)
     a=find_match(track, local_music_files)
     print(a if a else "No match")
@@ -334,9 +339,7 @@ def find_exact_tag_match(local_music_file_infos, song_info, tracker: MatchTracke
         When the first exact match is found, the search calls match and returns.
     """
     for music_file_info in local_music_file_infos:
-        ##print("[{}] checking {} step 1".format(song_info.title, music_file_info.filename))
         if music_file_info.is_tag_set():
-            ##print("[{}] checking {} step 2".format(song_info.title, music_file_info.filename))
             tag = music_file_info.tag
             if tag.set_parts_equal(artist=song_info.artist, title=song_info.title, album=song_info.album):
                 # The tags exactly match!
@@ -750,6 +753,9 @@ def main():
     print("\nMatches from Fallback (unmatched total is handled by other tracker):\n{}".format(pformat(fallback_tracker.match_counts)))
     print("\nSearched Playlists Statistics:\n{}".format(pformat(tracker.playlist_searches)))
     print("\nIncompleteness of Playlists (Number of missing Songs):\n{}".format(pformat(tracker.num_songs_missing)))
+
+    for p in output_playlists:
+        p.debug_isabs_check()
 
     output_playlists=complete_playlists_interactively(output_playlists)
     if COPY_FALLBACK_GPM_MUSIC:
