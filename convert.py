@@ -532,6 +532,9 @@ def complete_playlists_interactively(playlists: list):
     
     if len(user_specifiable_mappings) > 0:
         need_more_input=True
+    else:
+        need_more_input=False
+        print("Don't require any user input. Found everything!")
 
     while need_more_input:
         print("looping because need more input...")
