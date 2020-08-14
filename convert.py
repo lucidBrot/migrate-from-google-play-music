@@ -24,8 +24,8 @@ import json
 import shutil, filecmp
 import hashlib
 
-DEBUG_LINUX=(os.name=='posix')and False
-USE_UNRELIABLE_METHODS = False
+DEBUG_LINUX=(os.name=='posix')and False # I advise you just ignore this
+USE_UNRELIABLE_METHODS = False # Do you prefer wrong matches over missing matches that require manual adjustment?
 HANDLE_THUMBS_UP=True
 # Note that path settings are relative to the current working directory if you don't specify absolute paths.
 OUTPUT_PLAYLIST_DIR=os.path.normpath('output_playlists')
@@ -35,9 +35,12 @@ IGNORE_MUSIC_FOLDERS=['@eaDir', os.path.basename(OUTPUT_PLAYLIST_DIR_RELATIVE)]
 MAKE_PLAYLISTS_RELATIVE_TO_OUTPUT_PLAYLIST_DIR=True
 SAVE_ABSOLUTE_PLAYLISTS=True # No harm done in always keeping this True
 REDUCE_PLAYLIST_REDUNDANCIES=True
-DELETE_REDUNDANT_FILES_IN_MUSIC_PATH=True # only makes sense with REDUCE_PLAYLIST_REDUNDANCIES
+DUMP_REDUNDANCIES_AS_JSON_TO_OUTPUT_PLAYLIST_DIR=True
+# setting this to True only makes sense with REDUCE_PLAYLIST_REDUNDANCIES.
+DELETE_REDUNDANT_FILES_IN_MUSIC_PATH=True 
 # set this to False or None if you trust deletion, otherwise specify a trash bin directory for later manual deletion
 MOVE_FILES_INSTEAD_OF_DELETION=os.path.normpath('N:\Temp\GPM_Deletion')
+
 
 # Path to "Takeout / Google Play Music / Playlists" as obtained from takeout.google.com
 PLAYLISTS_PATH = os.path.normpath('N:\Files\Backups\GPM_export\Takeout\Google Play Music\Playlists')
@@ -763,8 +766,9 @@ def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH):
 
 
     print("Time: {}".format(datetime.now() - startTime))
-    with open(os.path.join(OUTPUT_PLAYLIST_DIR, "redundancies.json"), "w", encoding="utf-8") as jsf:
-        json.dump(redundancies, jsf, indent=4)
+    if DUMP_REDUNDANCIES_AS_JSON_TO_OUTPUT_PLAYLIST_DIR:
+        with open(os.path.join(OUTPUT_PLAYLIST_DIR, "redundancies.json"), "w", encoding="utf-8") as jsf:
+            json.dump(redundancies, jsf, indent=4)
 
     return redundancies
 
