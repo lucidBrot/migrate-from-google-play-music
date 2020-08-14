@@ -639,11 +639,26 @@ def relativate_playlists(abs_playlists: list, relative_to=OUTPUT_PLAYLIST_DIR_RE
 def debug_create_lmfi_sans_tags():
     return [FileInfo(filename=filpath, full_path=os.path.abspath(os.path.join(dirpath, filpath))) for (dirpath, _dirs, filpaths) in os.walk(MUSIC_PATH) for filpath in filpaths if not is_ignored(dirpath) ]
 
-def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH, BUF_SIZE=2*65536):
+def hash_file_md5(filepath, BUF_SIZE=2*65536):
+    """
+        BUF_SIZE is arbitrarily chosen to read files in 128kb chunks.
+    """
+        # compute md5 without reading the whole file at once. Maybe not necessary, but whatever.
+        md5=hashlib.md5()
+        with open(filepath, 'rb') as f:
+            while True:
+                data = f.read(BUF_SIZE)
+                if not data:
+                    break
+                md5.update(data)
+        mdhash = md5.hexdigest()
+        return mdhash
+
+def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH):
     """
         The files aren't that big, so we wouldn't need to compute a hash for comparison... but since we need one for tracking... we compute one. Then if the hashes match up, we can do a quick comparison.
 
-        BUF_SIZE is arbitrarily chosen to read files in 128kb chunks.
+        You are supposed to keep one of the files - only the others are redundant.
     """
     startTime=datetime.now()
     redundancies = {} # maps hexdigest of hash to list of file paths
@@ -653,15 +668,7 @@ def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH, BUF_SIZE=
     for lmfi in local_music_file_infos:
         progressctr+=1
         print("[HASHING]: Progress {} / {}".format(progressctr, progresstotal))
-        # compute md5 without reading the whole file at once. Maybe not necessary, but whatever.
-        md5=hashlib.md5()
-        with open(lmfi.full_path, 'rb') as f:
-            while True:
-                data = f.read(BUF_SIZE)
-                if not data:
-                    break
-                md5.update(data)
-        mdhash = md5.hexdigest()
+        mdhash=hash_file_md5(lmfi.full_path)
         # add to dict
         redundancies[mdhash] = redundancies.get(mdhash, list()) + [lmfi.full_path]
     
@@ -736,7 +743,17 @@ def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH, BUF_SIZE=
     return redundancies
 
 def update_playlists(playlists, redundancies):
-    return playlists # stub
+    """
+        Compute new Playlists that all use the same songs.
+    """
+    for playlist in playlists:
+        name=playlist.name
+        pl=Playlist(name=name)
+        for songpath in playlist:
+            mdhash = hash_file_md5(songpath) # could cache those inside that function if speed required. 
+            p = redundancies.get(mdhash, [None])[0] or songpath
+            pl.add(p)
+    return playlists
 
 def delete_redundant_files(redundancies):
     #stub
