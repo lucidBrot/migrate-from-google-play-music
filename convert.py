@@ -708,6 +708,16 @@ def main():
                     match_found=True
                     break
 
+                # try a simple heuristic of whether the tags contain the relevant title and artist
+                if tags_contain_info(local_music_file_infos, song_info, tracker, playlist=playlist):
+                    match_found=True
+                    break
+
+                # try a heuristic on the file path (full path, not just name)
+                if filepath_contains_info(local_music_file_infos, song_info, tracker, playlist=playlist):
+                    match_found=True
+                    break
+
                 # try fuzzy filename matching in various orders
                 fuzzy_match_techniques = [
                         "{artist}{title}{album}",
@@ -726,15 +736,6 @@ def main():
                     match_found=True
                     break
 
-                # try a simple heuristic of whether the tags contain the relevant title and artist
-                if tags_contain_info(local_music_file_infos, song_info, tracker, playlist=playlist):
-                    match_found=True
-                    break
-
-                # try a heuristic on the file path (full path, not just name)
-                if filepath_contains_info(local_music_file_infos, song_info, tracker, playlist=playlist):
-                    match_found=True
-                    break
 
                 # try things that are likely to guess wrongly
                 if USE_UNRELIABLE_METHODS:
