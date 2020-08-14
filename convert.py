@@ -809,7 +809,8 @@ def delete_redundant_files(redundancies, folder=MUSIC_PATH, move_instead_of_dele
         for entry in redlist[1:]:
             counter+=1
             if move_instead_of_delete: 
-                shutil.move(os.path.normpath(entry), move_instead_of_delete)
+                # overwrite if exists
+                shutil.move(os.path.normpath(entry), os.path.join(move_instead_of_delete, os.path.basename(entry)))
             else:
                 os.remove(os.path.normpath(entry))
     pass
