@@ -639,10 +639,19 @@ def relativate_playlists(abs_playlists: list, relative_to=OUTPUT_PLAYLIST_DIR_RE
 def debug_create_lmfi_sans_tags():
     return [FileInfo(filename=filpath, full_path=os.path.abspath(os.path.join(dirpath, filpath))) for (dirpath, _dirs, filpaths) in os.walk(MUSIC_PATH) for filpath in filpaths if not is_ignored(dirpath) ]
 
+@dataclass
+def HashCacheSingleton:
+    filehashes={}
+
 def hash_file_md5(filepath, BUF_SIZE=2*65536):
     """
         BUF_SIZE is arbitrarily chosen to read files in 128kb chunks.
     """
+        # check cache
+        cc = HashCacheSingleton.filehashes.get(filepath, None)
+        if cc:
+            return cc
+
         # compute md5 without reading the whole file at once. Maybe not necessary, but whatever.
         md5=hashlib.md5()
         with open(filepath, 'rb') as f:
@@ -652,6 +661,10 @@ def hash_file_md5(filepath, BUF_SIZE=2*65536):
                     break
                 md5.update(data)
         mdhash = md5.hexdigest()
+
+        # cache
+        HashCacheSingleton.filehashes[filepath] = mdhash
+
         return mdhash
 
 def compute_redundant_files(local_music_file_infos, folder=MUSIC_PATH):
@@ -750,7 +763,7 @@ def update_playlists(playlists, redundancies):
         name=playlist.name
         pl=Playlist(name=name)
         for songpath in playlist:
-            mdhash = hash_file_md5(songpath) # could cache those inside that function if speed required. 
+            mdhash = hash_file_md5(songpath) 
             p = redundancies.get(mdhash, [None])[0] or songpath
             pl.add(p)
     return playlists
