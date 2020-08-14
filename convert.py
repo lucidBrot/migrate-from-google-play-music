@@ -131,7 +131,6 @@ class MatchTracker:
         # store result
         if playlist != None:
             playlist.add(path)
-            playlist.debug_isabs_check()
 
     def unmatch_for_playlist(self, playlist):
         """
@@ -627,9 +626,6 @@ def main():
     print("Indexing local music files...")
     local_music_file_infos = [FileInfo(filename=filpath, full_path=os.path.abspath(os.path.join(dirpath, filpath))) for (dirpath, _dirs, filpaths) in os.walk(MUSIC_PATH) for filpath in filpaths if not is_ignored(dirpath) ]
 
-    for lmfi_debug in local_music_file_infos:
-        assert os.path.isabs(lmfi_debug.full_path), "Check Failed for {}".format(lmfi_debug.full_path)
-
     print("Indexing local music file tags...")
     for file_info in local_music_file_infos:
         file_info.update_tag_from_fs()
@@ -758,9 +754,6 @@ def main():
     print("\nMatches from Fallback (unmatched total is handled by other tracker):\n{}".format(pformat(fallback_tracker.match_counts)))
     print("\nSearched Playlists Statistics:\n{}".format(pformat(tracker.playlist_searches)))
     print("\nIncompleteness of Playlists (Number of missing Songs):\n{}".format(pformat(tracker.num_songs_missing)))
-
-    for p in output_playlists:
-        p.debug_isabs_check()
 
     output_playlists=complete_playlists_interactively(output_playlists)
     if COPY_FALLBACK_GPM_MUSIC:
