@@ -12,8 +12,8 @@ Google Play Music is being discontinued starting October 2020. The successor, Yo
 4. Congrats! You now have 
 
    * Playlists with absolute paths to your **existing high-quality music files**
-   * Playlists using relative paths
-   * No more duplicate files in your existing library
+   * Playlists **using relative paths** for the same
+   * **No more duplicate files** in your library
 
 ### Install
 
@@ -26,6 +26,8 @@ The environment.yml was generated with conda. You should only need to install`mu
 ```bash
 conda install -c conda-forge mutagen
 ```
+
+Then read the [Options](#Options) and [Run](#Run) it.
 
 ### Options
 
