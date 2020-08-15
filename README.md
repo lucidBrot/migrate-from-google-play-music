@@ -1,3 +1,5 @@
+![Header Image](./migrate-from-gpm.png)
+
 Google Play Music is being discontinued starting October 2020. The successor, Youtube Music, requires payment or the music will stop when you turn your screen off. And other disadvantages. So you want to migrate to `m3u` playlist files again.
 
 1. [Export from Google Takeout](https://takeout.google.com/) by selecting only Google Play Music.
