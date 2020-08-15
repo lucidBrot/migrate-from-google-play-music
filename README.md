@@ -13,7 +13,7 @@ Google Play Music is being discontinued starting October 2020. The successor, Yo
 
 4. Congrats! You now have 
 
-   * Playlists with absolute paths to your **existing high-quality music files**
+   * Playlists with absolute paths matched to your **existing high-quality music files**
    * Playlists **using relative paths** for the same
    * **No more duplicate files** in your library
 
