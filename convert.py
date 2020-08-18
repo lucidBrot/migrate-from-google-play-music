@@ -938,7 +938,7 @@ def main():
                         break
                     
                     # try fuzzy tag matching
-                    found_fuzzy_tag_match = find_fuzzy_tag_match(local_music_file_infos, song_info, tracke, playlist=playlistr)
+                    found_fuzzy_tag_match = find_fuzzy_tag_match(local_music_file_infos, song_info, tracker, playlist=playlist)
                     if found_fuzzy_tag_match:
                         match_found=True
                         break
