@@ -16,6 +16,8 @@ Google Play Music is being discontinued starting October 2020. The successor, Yo
    * Playlists with absolute paths matched to your **existing high-quality music files**
    * Playlists **using relative paths** for the same
    * **No more duplicate files** in your library
+   
+5. (Optional: Have a look at my [wiki pages](https://github.com/lucidBrot/migrate-from-google-play-music/wiki) to see how I make use of those files.)
 
 ### Install
 
