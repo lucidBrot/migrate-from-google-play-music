@@ -25,7 +25,7 @@ Google Play Music is being discontinued starting October 2020. The successor, Yo
 git clone https://github.com/lucidBrot/migrate-from-google-play-music.git
 ```
 
-The environment.yml was generated with conda. You should only need to install`mutagen` (with pip or conda).
+The environment.yml was generated with conda. You should only need to install `mutagen` (with pip or conda). If you are not using conda, be aware that I have used `python 3.8` for development. (See [this issue](https://github.com/lucidBrot/migrate-from-google-play-music/issues/2), it seems like `3.7` will work as well.)
 
 ```bash
 conda install -c conda-forge mutagen
