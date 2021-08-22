@@ -14,7 +14,7 @@
 #  Or to compute them all and save them as files, call `generate_songlists` with
 # `N:\Files\Backups\GPM_export\Takeout>python -c "import convert; convert.generate_songlists();"`
 
-# `python convert.py -c "import * from convert; lmfi=debug_create_lmfi_sans_tags(); compute_redundant_files(lmfi);"`
+# `python convert.py -c "from convert import *; lmfi=debug_create_lmfi_sans_tags(); compute_redundant_files(lmfi);"`
 #  Computes which files are duplicates in your MUSIC_PATH and if the settings are set accordingly, dumps the computed also to a json file for your viewing pleasure.
 import os, sys, csv
 from dataclasses import dataclass

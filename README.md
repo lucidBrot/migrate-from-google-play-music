@@ -186,7 +186,7 @@ Of course, relevant [Options](#Options) need to be set.
 #### Compute Duplicates in `MUSIC_PATH`
 
 ```python
-python convert.py -c "import * from convert; lmfi=debug_create_lmfi_sans_tags(); compute_redundant_files(lmfi);"
+python convert.py -c "from convert import *; lmfi=debug_create_lmfi_sans_tags(); compute_redundant_files(lmfi);"
 ```
 
 If `DUMP_REDUNDANCIES_AS_JSON_TO_OUTPUT_PLAYLIST_DIR` is `True`, this dumps to a file in the folder where the absolute path playlists would also be stored.
